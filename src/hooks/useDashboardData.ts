@@ -7,6 +7,7 @@ export interface Company {
   user_id: string;
   name: string;
   company_type: string;
+  context_type?: string;
   revenue_type: string;
   predictability: string;
   status: string;
@@ -31,6 +32,7 @@ export interface Transaction {
   hours_spent: number;
   predictability?: string;
   is_archived?: boolean;
+  context_type?: string;
 }
 
 export interface ProductService {
