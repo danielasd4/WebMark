@@ -13,6 +13,7 @@ interface DashboardCardProps {
   className?: string;
   variant?: 'success' | 'danger' | 'warning' | 'info' | 'neutral';
   priority?: 'high' | 'medium' | 'low';
+  soft?: boolean;
   children?: React.ReactNode;
 }
 
@@ -25,6 +26,7 @@ export const DashboardCard = ({
   className,
   variant = 'neutral',
   priority = 'medium',
+  soft = false,
   children
 }: DashboardCardProps) => {
   // Cores sutis apenas para o ícone
@@ -38,9 +40,9 @@ export const DashboardCard = ({
 
   return (
     <div className={cn(
-      "glass-card p-5 group flex flex-col justify-between",
-      // Destaque estrutural sutil para prioridades altas (Lucro, Receita)
-      priority === 'high' ? "bg-zinc-900//[0.02] border-zinc-300" : "bg-white",
+      "glass-card p-6 group flex flex-col justify-between transition-all duration-300",
+      soft ? "rounded-[24px] border-white/50 bg-white/40 shadow-sm hover:shadow-md" : "rounded-2xl bg-white",
+      priority === 'high' && !soft ? "bg-zinc-900/[0.02] border-zinc-300" : "",
       className
     )}>
       <div className="flex justify-between items-start mb-6">

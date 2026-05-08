@@ -215,7 +215,7 @@ function App() {
                   />
                   
                   <button 
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => { setEditingTransaction({ type: 'income', context_type: 'business' }); setIsModalOpen(true); }}
                     className="btn-primary w-full md:w-auto"
                   >
                     <Plus size={20} />
@@ -291,7 +291,7 @@ function App() {
                 onDeleteCollaborator={deleteCollaborator}
                 onUpdateCompany={updateCompany}
                 onDeleteCompany={deleteCompany}
-                onAddTransaction={(data: any) => { setEditingTransaction(data); setIsModalOpen(true); }}
+                onAddTransaction={(data: any) => { setEditingTransaction({ ...data, context_type: 'business' }); setIsModalOpen(true); }}
                 onUpdateTransaction={updateTransaction}
                 userProfile={userProfile}
                 onUpdateUserProfile={updateUserProfile}

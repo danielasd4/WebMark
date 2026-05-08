@@ -33,13 +33,17 @@ export const QuickTransactionModal = ({ isOpen, onClose, companies, products, on
       if (initialData) {
         setData(initialData);
       } else {
+        const familyCompany = companies.find(c => c.context_type === 'family' || c.company_type === 'Financeiro Pessoal');
+        const defaultCompany = familyCompany || companies[0];
+
         setData({
           type: 'expense',
           amount: 0,
           description: '',
-          category: 'Alimentação',
+          category: 'Moradia',
           transaction_date: new Date().toISOString().split('T')[0],
-          company_id: companies.find(c => c.company_type === 'Financeiro Pessoal')?.id || companies[0]?.id || '',
+          company_id: defaultCompany?.id || '',
+          context_type: familyCompany ? 'family' : 'business',
           subcategory: 'BRL - Real Brasileiro',
           status: 'paid',
           recurrence_type: 'variable',
@@ -100,20 +104,38 @@ export const QuickTransactionModal = ({ isOpen, onClose, companies, products, on
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             {/* Conta/Carteira */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Conta de Origem</label>
-              <select 
-                value={data.company_id}
-                onChange={e => setData({...data, company_id: e.target.value})}
-                className="input-premium h-12 bg-zinc-50/50"
-              >
-                <option value="">Selecione...</option>
-                {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
+            {(() => {
+              const selectedCompany = companies.find(c => c.id === data.company_id);
+              const isFamilyContext = data.context_type === 'family' || selectedCompany?.context_type === 'family' || selectedCompany?.company_type === 'Financeiro Pessoal';
+              
+              if (isFamilyContext) {
+                // No contexto familiar, não mostramos o seletor, pois usamos a conta família automaticamente
+                return null;
+              }
+
+              return (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Conta de Origem</label>
+                  <select 
+                    value={data.company_id}
+                    onChange={e => setData({...data, company_id: e.target.value})}
+                    className="input-premium h-12 bg-zinc-50/50"
+                  >
+                    <option value="">Selecione...</option>
+                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              );
+            })()}
 
             {/* Valor */}
-            <div className="flex flex-col gap-1.5">
+            <div className={cn(
+              "flex flex-col gap-1.5",
+              (() => {
+                const selectedCompany = companies.find(c => c.id === data.company_id);
+                return (data.context_type === 'family' || selectedCompany?.context_type === 'family') ? "col-span-2" : "";
+              })()
+            )}>
               <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Valor</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 font-bold text-sm">R$</span>
@@ -136,7 +158,7 @@ export const QuickTransactionModal = ({ isOpen, onClose, companies, products, on
             <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest ml-1">
               {(() => {
                 const selectedCompany = companies.find(c => c.id === data.company_id);
-                const isFamily = selectedCompany?.context_type === 'family' || selectedCompany?.company_type === 'Financeiro Pessoal';
+                const isFamily = data.context_type === 'family' || selectedCompany?.context_type === 'family' || selectedCompany?.company_type === 'Financeiro Pessoal';
                 if (isFamily) {
                   return data.type === 'income' ? "De onde veio esse dinheiro?" : "O que é esse gasto da casa?";
                 }
@@ -150,11 +172,11 @@ export const QuickTransactionModal = ({ isOpen, onClose, companies, products, on
               className="input-premium h-12"
               placeholder={(() => {
                 const selectedCompany = companies.find(c => c.id === data.company_id);
-                const isFamily = selectedCompany?.context_type === 'family' || selectedCompany?.company_type === 'Financeiro Pessoal';
+                const isFamily = data.context_type === 'family' || selectedCompany?.context_type === 'family' || selectedCompany?.company_type === 'Financeiro Pessoal';
                 if (isFamily) {
                   return data.type === 'income' 
                     ? "Ex: Salário Daniel, Salário Adrieli, Entrada Extra..." 
-                    : "Ex: Conta de Luz, Mercado, Internet, Cartão, Parcela do Carro, Escola, Farmácia, Assinaturas...";
+                    : "Ex: Conta de Luz, Mercado do Mês, Internet, Parcela do Carro...";
                 }
                 return data.type === 'income'
                   ? "Ex: Consultoria Mensal, Venda de Produto..."
@@ -175,7 +197,7 @@ export const QuickTransactionModal = ({ isOpen, onClose, companies, products, on
                 <option value="">Selecionar Categoria</option>
                 {(() => {
                   const selectedCompany = companies.find(c => c.id === data.company_id);
-                  const isFamily = selectedCompany?.context_type === 'family' || selectedCompany?.company_type === 'Financeiro Pessoal';
+                  const isFamily = data.context_type === 'family' || selectedCompany?.context_type === 'family' || selectedCompany?.company_type === 'Financeiro Pessoal';
 
                   const familyCategories = {
                     income: ['Salário', 'Entrada Extra', 'Reserva', 'Outros'],

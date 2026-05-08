@@ -233,7 +233,7 @@ export function useDashboardData(session: any) {
 
     // Buscar o contexto da empresa para vincular à transação
     const company = companies.find(c => c.id === data.company_id);
-    const contextType = company?.context_type || (company?.company_type === 'Financeiro Pessoal' ? 'family' : 'business');
+    const contextType = data.context_type || company?.context_type || (company?.company_type === 'Financeiro Pessoal' ? 'family' : 'business');
 
     const { error } = await supabase.from('transactions').insert({ 
       ...data, 
@@ -401,38 +401,40 @@ export function useDashboardData(session: any) {
 
     return {
       business: {
-        income: bizIncome,
-        expense: bizExpense,
-        profit: bizIncome - bizExpense,
-        hourlyRate: bizHours > 0 ? bizIncome / bizHours : 0,
-        pendingExpenses: bizTxs.filter(t => t.type === 'expense' && t.status === 'pending').reduce((acc, t) => acc + Number(t.amount), 0),
-        predictableRevenue: bizMonthTxs.filter(t => t.type === 'income' && t.recurrence_type === 'recurring').reduce((acc, t) => acc + Number(t.amount), 0),
-        variableRevenue: bizMonthTxs.filter(t => t.type === 'income' && t.recurrence_type === 'variable').reduce((acc, t) => acc + Number(t.amount), 0),
-        totalHours: bizHours,
-        transactions: bizTxs,
-        companies: businessCompanies
+        income: bizIncome || 0,
+        expense: bizExpense || 0,
+        profit: (bizIncome || 0) - (bizExpense || 0),
+        hourlyRate: bizHours > 0 ? (bizIncome / bizHours) : 0,
+        pendingExpenses: bizTxs.filter(t => t.type === 'expense' && t.status === 'pending').reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
+        predictableRevenue: bizMonthTxs.filter(t => t.type === 'income' && t.recurrence_type === 'recurring').reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
+        variableRevenue: bizMonthTxs.filter(t => t.type === 'income' && t.recurrence_type === 'variable').reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
+        totalHours: bizHours || 0,
+        transactions: bizTxs || [],
+        companies: businessCompanies || []
       },
       family: {
-        income: famTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0),
-        expense: famTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0),
-        transactions: famTxs,
-        companies: familyCompanies
+        income: famTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
+        expense: famTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
+        transactions: famTxs || [],
+        companies: familyCompanies || []
       },
       personal: {
-        income: perTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0),
-        expense: perTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0),
-        transactions: perTxs,
-        companies: personalCompanies
+        income: perTxs.filter(t => t.type === 'income').reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
+        expense: perTxs.filter(t => t.type === 'expense').reduce((acc, t) => acc + (Number(t.amount) || 0), 0),
+        transactions: perTxs || [],
+        companies: personalCompanies || []
       }
     };
   }, [companies, transactions]);
 
+  const safeFormat = (val: number) => formatCurrency(Number(val) || 0);
+
   return {
-    companies,
-    products,
-    transactions,
-    recurringBills,
-    collaborators,
+    companies: companies || [],
+    products: products || [],
+    transactions: transactions || [],
+    recurringBills: recurringBills || [],
+    collaborators: collaborators || [],
     userProfile,
     loading,
     error,
@@ -456,17 +458,17 @@ export function useDashboardData(session: any) {
     refresh: fetchData,
     // Legacy mapping to avoid breaking UI immediately
     metrics: {
-      entradasMes: formatCurrency(financialEngine.business.income),
-      saidasMes: formatCurrency(financialEngine.business.expense),
-      lucroLiquido: formatCurrency(financialEngine.business.profit),
-      contasFuturas: formatCurrency(financialEngine.business.pendingExpenses),
-      valorHoraMedio: formatCurrency(financialEngine.business.hourlyRate),
-      revenue: financialEngine.business.income,
-      rawTransactions: financialEngine.business.transactions,
-      receitaVariavel: formatCurrency(financialEngine.business.variableRevenue),
-      receitaPrevisivelRaw: financialEngine.business.predictableRevenue,
-      receitaPrevisivel: formatCurrency(financialEngine.business.predictableRevenue),
-      totalHorasMes: financialEngine.business.totalHours
+      entradasMes: safeFormat(financialEngine.business.income),
+      saidasMes: safeFormat(financialEngine.business.expense),
+      lucroLiquido: safeFormat(financialEngine.business.profit),
+      contasFuturas: safeFormat(financialEngine.business.pendingExpenses),
+      valorHoraMedio: safeFormat(financialEngine.business.hourlyRate),
+      revenue: financialEngine.business.income || 0,
+      rawTransactions: financialEngine.business.transactions || [],
+      receitaVariavel: safeFormat(financialEngine.business.variableRevenue),
+      receitaPrevisivelRaw: financialEngine.business.predictableRevenue || 0,
+      receitaPrevisivel: safeFormat(financialEngine.business.predictableRevenue),
+      totalHorasMes: financialEngine.business.totalHours || 0
     }
   };
 }

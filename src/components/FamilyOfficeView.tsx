@@ -222,8 +222,8 @@ export const FamilyOfficeView = ({
             <button 
               onClick={() => setSubContext('all')}
               className={cn(
-                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all",
-                subContext === 'all' ? "bg-zinc-900 text-white border-zinc-900" : "bg-white text-zinc-400 border-zinc-200 hover:border-zinc-400"
+                "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all duration-300",
+                subContext === 'all' ? "bg-zinc-900 text-white border-zinc-900 shadow-lg shadow-zinc-900/10" : "bg-white text-zinc-400 border-zinc-100 hover:border-zinc-300"
               )}
             >
               Geral
@@ -231,8 +231,8 @@ export const FamilyOfficeView = ({
             <button 
               onClick={() => setSubContext('family')}
               className={cn(
-                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all",
-                subContext === 'family' ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-zinc-400 border-zinc-200 hover:border-emerald-400"
+                "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all duration-300",
+                subContext === 'family' ? "bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm" : "bg-white text-zinc-400 border-zinc-100 hover:border-emerald-200"
               )}
             >
               Família
@@ -240,8 +240,8 @@ export const FamilyOfficeView = ({
             <button 
               onClick={() => setSubContext('personal')}
               className={cn(
-                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all",
-                subContext === 'personal' ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-zinc-400 border-zinc-200 hover:border-indigo-400"
+                "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all duration-300",
+                subContext === 'personal' ? "bg-indigo-50 text-indigo-600 border-indigo-100 shadow-sm" : "bg-white text-zinc-400 border-zinc-100 hover:border-indigo-200"
               )}
             >
               Pessoal
@@ -251,7 +251,7 @@ export const FamilyOfficeView = ({
 
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => onAddTransaction({ type: 'expense' })}
+            onClick={() => onAddTransaction({ type: 'expense', context_type: 'family' })}
             className="btn-primary"
           >
             <Plus size={16} />
@@ -262,33 +262,35 @@ export const FamilyOfficeView = ({
 
       {activeTab === 'visao-geral' && (
         <div className="space-y-8 animate-in slide-in-from-bottom-4">
-          <div className="glass-card bg-zinc-900 border-none p-8 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[100px] -mr-32 -mt-32 rounded-full group-hover:bg-emerald-500/20 transition-all duration-700" />
-            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-emerald-400 mb-2">
-                  <Sparkles size={18} />
-                  <span className="text-xs font-black uppercase tracking-[0.2em]">Inteligência Vency Hub</span>
+          <div className="glass-card bg-[#0A0A0B] border border-white/[0.03] p-8 md:p-10 relative overflow-hidden group shadow-2xl rounded-[32px]">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/[0.03] blur-[120px] -mr-40 -mt-40 rounded-full group-hover:bg-emerald-500/[0.06] transition-all duration-1000" />
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-500/[0.03] blur-[120px] -ml-40 -mb-40 rounded-full group-hover:bg-indigo-500/[0.06] transition-all duration-1000" />
+            
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-emerald-400/80 mb-1">
+                  <Sparkles size={16} className="animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em]">Patrimônio Familiar</span>
                 </div>
-                <h2 className="text-3xl font-bold text-white tracking-tight">Família Barbosa</h2>
-                <p className="text-zinc-400 text-sm max-w-md font-medium">
-                  Planejamento do Casal: Vocês têm <span className="text-emerald-400 font-bold">{formatCurrency(metrics.monthlyIncome - metrics.monthlyExpense)}</span> disponíveis para investimentos ou lazer este mês.
+                <h2 className="text-4xl font-display font-bold text-white tracking-tight">Família Barbosa</h2>
+                <p className="text-zinc-500 text-sm max-w-md font-medium leading-relaxed">
+                  Planejamento do Casal: Vocês têm <span className="text-emerald-400/90 font-bold">{formatCurrency(metrics.monthlyIncome - metrics.monthlyExpense)}</span> disponíveis para investimentos ou lazer este mês.
                 </p>
               </div>
               <div className="flex gap-4">
-                <div className="px-6 py-4 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-md text-right">
-                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Dinheiro em Conta</p>
-                  <p className="text-2xl font-bold text-white">{formatCurrency(metrics.totalBalance)}</p>
+                <div className="px-8 py-5 bg-white/[0.02] rounded-[24px] border border-white/[0.05] backdrop-blur-xl text-right group-hover:border-white/10 transition-all duration-500">
+                  <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Dinheiro em Conta</p>
+                  <p className="text-3xl font-display font-bold text-white tracking-tighter">{formatCurrency(metrics.totalBalance)}</p>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <DashboardCard title="O que Entrou" value={metrics.monthlyIncome} icon={ArrowUpRight} variant="success" priority="high" />
-            <DashboardCard title="O que Saiu" value={metrics.monthlyExpense} icon={ArrowDownLeft} variant="danger" />
-            <DashboardCard title="Sobra do Mês" value={metrics.monthlyIncome - metrics.monthlyExpense} icon={Wallet} variant={(metrics.monthlyIncome - metrics.monthlyExpense) >= 0 ? "success" : "danger"} />
-            <DashboardCard title="Boletos a Pagar" value={metrics.toPay} icon={Calendar} variant="warning" subtitle="Próximos dias" />
+            <DashboardCard title="O que Entrou" value={metrics.monthlyIncome} icon={ArrowUpRight} variant="success" priority="high" soft={true} />
+            <DashboardCard title="O que Saiu" value={metrics.monthlyExpense} icon={ArrowDownLeft} variant="danger" soft={true} />
+            <DashboardCard title="Sobra do Mês" value={metrics.monthlyIncome - metrics.monthlyExpense} icon={Wallet} variant={(metrics.monthlyIncome - metrics.monthlyExpense) >= 0 ? "success" : "danger"} soft={true} />
+            <DashboardCard title="Boletos a Pagar" value={metrics.toPay} icon={Calendar} variant="warning" subtitle="Próximos dias" soft={true} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -301,18 +303,18 @@ export const FamilyOfficeView = ({
                 <button onClick={() => setActiveTab('transacoes')} className="text-xs font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-widest">Ver Histórico</button>
               </div>
               
-              <div className="glass-card">
+              <div className="glass-card border border-white/50 bg-white/40 shadow-sm p-4 rounded-[28px] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="border-b border-zinc-100 bg-zinc-50/50">
-                        <th className="px-6 py-4 text-[11px] font-black text-zinc-400 uppercase tracking-widest">Data</th>
-                        <th className="px-6 py-4 text-[11px] font-black text-zinc-400 uppercase tracking-widest">Descrição</th>
-                        <th className="px-6 py-4 text-[11px] font-black text-zinc-400 uppercase tracking-widest">Valor</th>
-                        <th className="px-6 py-4 text-[11px] font-black text-zinc-400 uppercase tracking-widest">Status</th>
+                      <tr>
+                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Data</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Descrição</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Valor</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-100">
+                    <tbody className="divide-y divide-zinc-50/50">
                       {transactions.slice(0, 5).map(tx => (
                         <tr key={tx.id} className="hover:bg-zinc-50 transition-colors group">
                           <td className="px-6 py-4">
@@ -366,7 +368,7 @@ export const FamilyOfficeView = ({
                 <Calendar size={18} className="text-amber-500" />
                 Próximos Vencimentos
               </h3>
-              <div className="glass-card p-4 space-y-3">
+              <div className="glass-card border border-white/50 bg-white/40 shadow-sm p-5 space-y-4 rounded-[28px]">
                 {recurringBills
                   .filter(bill => familyCompanyIds.includes(bill.company_id))
                   .slice(0, 3)
