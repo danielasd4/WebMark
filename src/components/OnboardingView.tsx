@@ -22,9 +22,9 @@ export const OnboardingView = ({ onComplete, onUpdateUserProfile }: OnboardingPr
   const operationOptions = [
     { id: 'servico', label: 'Prestação de Serviço' },
     { id: 'saas', label: 'SaaS / Software' },
+    { id: 'financeiro_pessoal', label: 'Gestão Pessoal / Família' },
     { id: 'ecommerce', label: 'E-commerce' },
     { id: 'clt', label: 'CLT / Fixo' },
-    { id: 'eventos', label: 'Eventos' },
     { id: 'projetos', label: 'Projetos Fechados' }
   ];
 
@@ -41,26 +41,36 @@ export const OnboardingView = ({ onComplete, onUpdateUserProfile }: OnboardingPr
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id || 'demo-user-id';
+      const userId = user?.id;
 
-      // No modo demo, apenas finalizamos sem tentar gravar no banco real
-      if (userId === 'demo-user-id') {
+      // Segurança: No modo demo ou sem UUID real (ex: 'demo-user-id'), apenas simulamos sucesso
+      if (!userId || userId.length < 30) {
         setLoading(false);
         onComplete();
         return;
       }
 
       // 1. Criar empresa base primária com base nas operações
-      const primaryType = data.operationTypes[0] || 'servico';
-      const companyName = data.name ? `Operações de ${data.name.split(' ')[0]}` : 'Minha Operação';
+      const selectedId = data.operationTypes[0] || 'servico';
+      const typeMap: Record<string, string> = {
+        'servico': 'Prestação de Serviço',
+        'saas': 'SaaS / Software',
+        'financeiro_pessoal': 'Financeiro Pessoal',
+        'ecommerce': 'E-commerce',
+        'clt': 'CLT / Fixo',
+        'projetos': 'Projetos Fechados'
+      };
+      
+      const primaryType = typeMap[selectedId] || 'Prestação de Serviço';
+      const companyName = data.name ? `Operações de ${data.name.split(' ')[0]}` : (selectedId === 'financeiro_pessoal' ? 'Finanças Família' : 'Minha Operação');
       
       const { error: compErr } = await supabase.from('companies').insert({
         user_id: userId,
         name: companyName,
         company_type: primaryType,
-        revenue_type: data.hasRecurring ? 'Mista' : 'Variável',
-        predictability: data.hasRecurring ? 'Média' : 'Baixa',
-        status: 'active'
+        revenue_type: selectedId === 'financeiro_pessoal' ? 'N/A' : (data.hasRecurring ? 'Mista' : 'Variável'),
+        predictability: selectedId === 'financeiro_pessoal' ? 'Fixa' : (data.hasRecurring ? 'Média' : 'Baixa'),
+        status: 'Ativa'
       });
 
       if (compErr) console.error("Erro ao criar empresa no onboarding:", compErr);

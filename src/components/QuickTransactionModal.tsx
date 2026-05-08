@@ -152,13 +152,38 @@ export const QuickTransactionModal = ({ isOpen, onClose, companies, products, on
                 onChange={e => setData({...data, category: e.target.value})}
                 className="input-premium h-12 bg-zinc-50/50"
               >
-                <option value="Alimentação">Alimentação</option>
-                <option value="Mercado">Mercado</option>
-                <option value="Moradia">Moradia</option>
-                <option value="Transporte">Transporte</option>
-                <option value="Lazer">Lazer</option>
-                <option value="Saúde">Saúde</option>
-                <option value="Outros">Outros</option>
+                {/* Categorias Dinâmicas baseadas no tipo da empresa */}
+                {(() => {
+                  const selectedCompany = companies.find(c => c.id === data.company_id);
+                  if (selectedCompany?.company_type === 'Financeiro Pessoal') {
+                    return (
+                      <>
+                        <option value="Alimentação">Alimentação</option>
+                        <option value="Mercado">Mercado</option>
+                        <option value="Moradia">Moradia</option>
+                        <option value="Transporte">Transporte</option>
+                        <option value="Lazer">Lazer</option>
+                        <option value="Saúde">Saúde</option>
+                        <option value="Educação">Educação</option>
+                        <option value="Investimentos">Investimentos</option>
+                        <option value="Outros">Outros</option>
+                      </>
+                    );
+                  } else {
+                    return (
+                      <>
+                        <option value="Serviços / Vendas">Serviços / Vendas</option>
+                        <option value="Consultoria">Consultoria</option>
+                        <option value="Assinaturas / SaaS">Assinaturas / SaaS</option>
+                        <option value="Impostos">Impostos</option>
+                        <option value="Marketing / Ads">Marketing / Ads</option>
+                        <option value="Pró-labore">Pró-labore</option>
+                        <option value="Infraestrutura">Infraestrutura</option>
+                        <option value="Outros">Outros</option>
+                      </>
+                    );
+                  }
+                })()}
               </select>
             </div>
 

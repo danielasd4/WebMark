@@ -87,7 +87,7 @@ export function useDashboardData(session: any) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
-    if (!session?.user?.id) {
+    if (!session?.user?.id || session.user.id === 'demo-user-id') {
       // MOCK DATA FOR DEMO MODE
       setCompanies([
         { id: '1', user_id: 'demo', name: 'Vency Design', company_type: 'Agência', revenue_type: 'Recorrente', predictability: 'Alta', status: 'Ativa', revenue_goal: 15000, target_hourly_rate: 200, max_monthly_hours: 40 },
@@ -112,6 +112,15 @@ export function useDashboardData(session: any) {
     }
     
     setLoading(true);
+    
+    // Limpar estados para evitar dados "fantasma" do modo demo
+    setCompanies([]);
+    setTransactions([]);
+    setProducts([]);
+    setRecurringBills([]);
+    setCollaborators([]);
+    setUserProfile(null);
+
     try {
       // 1. Fetch User Profile & Settings
       let { data: profile, error: profileError } = await supabase
@@ -143,7 +152,12 @@ export function useDashboardData(session: any) {
           .select()
           .maybeSingle();
 
-        if (!createError) profile = newProfile;
+        if (createError) {
+      console.error("[Supabase Error] Erro ao criar perfil inicial:", createError);
+      // Não lançar erro aqui para não bloquear o app, mas logar para debug
+    } else {
+      profile = newProfile;
+    }
       } else if (profileError) {
         throw profileError;
       }
@@ -177,13 +191,23 @@ export function useDashboardData(session: any) {
 
   // --- ACTIONS ---
   const updateUserProfile = async (data: Partial<UserProfile>) => {
-    if (!session?.user?.id) return;
-    if (session.user.id === 'demo-user-id') return; // Simulate success in demo mode
+    if (!session?.user?.id || session.user.id === 'demo-user-id') {
+      console.log("[Demo Mode] Simulação de sucesso no perfil");
+      return;
+    }
+    
     const { error } = await supabase
       .from('user_profile_settings')
-      .upsert({ ...data, user_id: session.user.id })
-      .eq('user_id', session.user.id);
-    if (error) throw error;
+      .upsert({ 
+        ...data, 
+        user_id: session.user.id,
+        updated_at: new Date().toISOString()
+      });
+    
+    if (error) {
+      console.error("[Backend Error] Falha ao atualizar perfil do usuário:", error.message);
+      throw new Error("Não foi possível salvar as configurações de perfil.");
+    }
     await fetchData();
   };
 
@@ -191,7 +215,10 @@ export function useDashboardData(session: any) {
     if (!session?.user?.id) return;
     if (session.user.id === 'demo-user-id') return; // Demo Mode
     const { error } = await supabase.from('transactions').insert({ ...data, user_id: session.user.id });
-    if (error) throw error;
+    if (error) {
+      console.error("[Backend Error] Falha ao adicionar transação:", error.message);
+      throw new Error("Erro ao registrar movimentação financeira.");
+    }
     await fetchData();
   };
 
@@ -199,7 +226,10 @@ export function useDashboardData(session: any) {
     if (!session?.user?.id) return;
     if (session.user.id === 'demo-user-id') return; // Demo Mode
     const { error } = await supabase.from('transactions').update(data).eq('id', id);
-    if (error) throw error;
+    if (error) {
+      console.error("[Supabase Error] Falha ao atualizar transação:", error);
+      throw new Error("Erro de permissão ou rede ao salvar transação.");
+    }
     await fetchData();
   };
 
@@ -234,7 +264,10 @@ export function useDashboardData(session: any) {
   const updateCompany = async (id: string, data: any) => {
     if (session?.user?.id === 'demo-user-id') return;
     const { error } = await supabase.from('companies').update(data).eq('id', id);
-    if (error) throw error;
+    if (error) {
+      console.error("[Backend Error] Falha ao atualizar empresa:", error.message);
+      throw new Error("Erro ao salvar dados da empresa.");
+    }
     await fetchData();
   };
 
@@ -248,42 +281,57 @@ export function useDashboardData(session: any) {
   const addRecurringBill = async (data: any) => {
     if (session?.user?.id === 'demo-user-id') return;
     const { error } = await supabase.from('recurring_bills').insert({ ...data, user_id: session.user.id });
-    if (error) throw error;
+    if (error) {
+      console.error("[Backend Error] Falha ao adicionar conta recorrente:", error.message);
+      throw new Error("Erro ao criar nova assinatura ou conta fixa.");
+    }
     await fetchData();
   };
 
   const updateRecurringBill = async (id: string, data: any) => {
     if (session?.user?.id === 'demo-user-id') return;
     const { error } = await supabase.from('recurring_bills').update(data).eq('id', id);
-    if (error) throw error;
+    if (error) {
+      console.error("[Supabase Error] Falha ao atualizar conta recorrente:", error);
+      throw new Error("Erro ao salvar alterações na conta fixa.");
+    }
     await fetchData();
   };
 
   const deleteRecurringBill = async (id: string) => {
     if (session?.user?.id === 'demo-user-id') return;
     const { error } = await supabase.from('recurring_bills').delete().eq('id', id);
-    if (error) throw error;
+    if (error) {
+      console.error("[Supabase Error] Falha ao excluir conta recorrente:", error);
+      throw new Error("Erro ao remover conta fixa.");
+    }
     await fetchData();
   };
 
   const addProduct = async (data: any) => {
     if (session?.user?.id === 'demo-user-id') return;
-    const { error } = await supabase.from('products').insert({ ...data, user_id: session.user.id });
+    const { error } = await supabase.from('products_services').insert({ ...data, user_id: session.user.id });
     if (error) throw error;
     await fetchData();
   };
 
   const updateProduct = async (id: string, data: any) => {
     if (session?.user?.id === 'demo-user-id') return;
-    const { error } = await supabase.from('products').update(data).eq('id', id);
-    if (error) throw error;
+    const { error } = await supabase.from('products_services').update(data).eq('id', id);
+    if (error) {
+      console.error("[Supabase Error] Falha ao atualizar produto:", error);
+      throw new Error("Erro ao salvar alterações no produto/serviço.");
+    }
     await fetchData();
   };
 
   const deleteProduct = async (id: string) => {
     if (session?.user?.id === 'demo-user-id') return;
-    const { error } = await supabase.from('products').delete().eq('id', id);
-    if (error) throw error;
+    const { error } = await supabase.from('products_services').delete().eq('id', id);
+    if (error) {
+      console.error("[Supabase Error] Falha ao excluir produto:", error);
+      throw new Error("Erro ao remover produto/serviço.");
+    }
     await fetchData();
   };
 

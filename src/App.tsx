@@ -74,7 +74,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 
 function App() {
   const [session, setSession] = useState<any>(null);
-  const [isDemoMode, setIsDemoMode] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   // Criar uma sessão simulada se estiver em modo Demo
   const effectiveSession = session || (isDemoMode ? { 
