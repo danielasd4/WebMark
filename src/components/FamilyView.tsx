@@ -111,7 +111,7 @@ export const FamilyView = ({
     if (!familyCompany) return [];
     return transactions.filter((t: any) => {
       if (t.company_id !== familyCompany.id || t.is_archived) return false;
-      const tDate = new Date(t.date || t.due_date);
+      const tDate = new Date(t.transaction_date || t.due_date);
       return tDate >= startOfMonth && tDate <= endOfMonth;
     });
   }, [transactions, currentDate, familyCompany]);
@@ -146,7 +146,7 @@ export const FamilyView = ({
   const totalIncome = incomes.reduce((acc: number, t: any) => acc + Number(t.amount), 0);
   const totalExpenses = allMonthlyExpenses.reduce((acc: number, t: any) => acc + Number(t.amount), 0);
   const totalInvestedMonth = investments.filter((t:any) => {
-    const d = new Date(t.date);
+    const d = new Date(t.transaction_date);
     return d >= startOfMonth && d <= endOfMonth;
   }).reduce((acc: number, t: any) => acc + Number(t.amount), 0);
   
@@ -316,7 +316,7 @@ export const FamilyView = ({
                       </div>
                       <div>
                         <p className="font-bold text-zinc-900">{tx.description}</p>
-                        <p className="text-[11px] text-zinc-500 font-medium">Recebido em {formatDateShort(tx.date)}</p>
+                        <p className="text-[11px] text-zinc-500 font-medium">Recebido em {formatDateShort(tx.transaction_date)}</p>
                       </div>
                     </div>
                     <p className="text-xl font-display font-bold text-emerald-600">R$ {Number(tx.amount).toLocaleString('pt-BR')}</p>
@@ -347,7 +347,7 @@ export const FamilyView = ({
                       </div>
                       <div>
                         <p className="font-bold text-zinc-900">{tx.description}</p>
-                        <p className="text-[11px] text-zinc-500 font-medium">Aporte em {formatDateShort(tx.date)}</p>
+                        <p className="text-[11px] text-zinc-500 font-medium">Aporte em {formatDateShort(tx.transaction_date)}</p>
                       </div>
                     </div>
                     <p className="text-xl font-display font-bold text-zinc-900">R$ {Number(tx.amount).toLocaleString('pt-BR')}</p>
@@ -409,7 +409,7 @@ const TransactionRowPremium = ({ tx, isOverdue, isPaid, onUpdate, onConfirm, pro
           <div className="flex items-center gap-4 mt-1">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-tighter">
               <Calendar size={12} strokeWidth={2.5} />
-              <span>{isPaid ? `Pago ${formatDate(tx.date || tx.updated_at)}` : `Vence ${formatDate(tx.due_date)}`}</span>
+              <span>{isPaid ? `Pago ${formatDate(tx.transaction_date || tx.updated_at)}` : `Vence ${formatDate(tx.due_date)}`}</span>
             </div>
             {isOverdue && <span className="text-[9px] font-black uppercase text-rose-600 bg-rose-100 px-2 py-0.5 rounded tracking-widest">Atraso</span>}
           </div>

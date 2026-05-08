@@ -55,6 +55,8 @@ interface CompaniesViewProps {
   forceSelectedId?: string;
   onAddTransaction?: (data: any) => void;
   onUpdateTransaction?: (id: string, data: any) => void;
+  userProfile?: any;
+  onUpdateUserProfile?: (data: any) => Promise<void>;
 }
 
 export const CompaniesView = ({ 
@@ -76,7 +78,7 @@ export const CompaniesView = ({
   onUpdateTransaction,
   userProfile,
   onUpdateUserProfile
-}: any) => {
+}: CompaniesViewProps) => {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(forceSelectedId || null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showProductModal, setShowProductModal] = useState(false);
@@ -104,7 +106,7 @@ export const CompaniesView = ({
     const newBalance = parseFloat(tempTotalCash);
     if (!isNaN(newBalance)) {
       try {
-        await onUpdateUserProfile({ total_cash: newBalance });
+        await onUpdateUserProfile?.({ total_cash: newBalance });
         setShowSettingsModal(false);
       } catch (e) {
         console.error("Erro ao salvar saldo:", e);
@@ -957,13 +959,13 @@ const ProductModal = ({ onClose, companyId, initialData, onSave, onDelete }: any
 // Componente Local Modal de Edição de Empresa
 const CompanyEditModal = ({ onClose, company, onSave, onDelete }: any) => {
   const [formData, setFormData] = useState({
-    name: company.name,
-    company_type: company.company_type,
-    predictability: company.predictability,
-    status: company.status,
-    revenue_goal: company.revenue_goal || 0,
-    target_hourly_rate: company.target_hourly_rate || 0,
-    max_monthly_hours: company.max_monthly_hours || 0
+    name: company?.name || '',
+    company_type: company?.company_type || 'Financeiro Empresarial',
+    predictability: company?.predictability || 'Variável',
+    status: company?.status || 'Ativa',
+    revenue_goal: company?.revenue_goal || 0,
+    target_hourly_rate: company?.target_hourly_rate || 0,
+    max_monthly_hours: company?.max_monthly_hours || 0
   });
   const [loading, setLoading] = useState(false);
 
@@ -1063,7 +1065,7 @@ const CompanyEditModal = ({ onClose, company, onSave, onDelete }: any) => {
 
           <div className="pt-4 flex gap-3 border-t border-zinc-100 mt-6">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancelar</button>
-            {company.id && (
+            {company?.id && (
               <button 
                 type="button" 
                 onClick={async () => {
