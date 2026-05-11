@@ -69,9 +69,15 @@ export const FamilyOfficeView = ({
   const [filterType, setFilterType] = useState('all');
 
   const transactions = useMemo(() => {
-    if (subContext === 'family') return familyTransactions;
-    if (subContext === 'personal') return personalTransactions;
-    return [...familyTransactions, ...personalTransactions];
+    let list = [];
+    if (subContext === 'family') list = familyTransactions;
+    else if (subContext === 'personal') list = personalTransactions;
+    else list = [...familyTransactions, ...personalTransactions];
+
+    // Remove duplicatas por ID para evitar que transações unificadas apareçam duas vezes
+    const uniqueMap = new Map();
+    list.forEach(tx => uniqueMap.set(tx.id, tx));
+    return Array.from(uniqueMap.values());
   }, [familyTransactions, personalTransactions, subContext]);
 
   const familyCompanyIds = useMemo(() => 

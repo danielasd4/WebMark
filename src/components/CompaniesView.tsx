@@ -53,7 +53,7 @@ interface CompaniesViewProps {
   onUpdateCompany: (id: string, data: any) => Promise<void>;
   onDeleteCompany: (id: string) => Promise<void>;
   forceSelectedId?: string;
-  onAddTransaction?: (data: any) => void;
+  onAddTransaction: (data: Partial<Transaction>) => Promise<void>;
   onUpdateTransaction?: (id: string, data: any) => void;
   userProfile?: any;
   onUpdateUserProfile?: (data: any) => Promise<void>;
@@ -295,7 +295,8 @@ export const CompaniesView = ({
               />
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {companies.map((company: Company) => {
