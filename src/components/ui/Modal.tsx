@@ -40,20 +40,20 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
       />
       <div
         className={cn(
-          'relative w-full bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200',
+          'relative w-full bg-white rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]',
           sizes[size],
           className
         )}
       >
         {(title || description) && (
-          <div className="flex items-start justify-between p-6 border-b border-zinc-100">
+          <div className="flex items-start justify-between p-6 border-b border-zinc-100 shrink-0">
             <div>
               {title && <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>}
               {description && <p className="text-sm text-zinc-500 mt-0.5">{description}</p>}
             </div>
             <button
               onClick={onClose}
-              className="ml-4 p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors"
+              className="ml-4 p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors shrink-0"
             >
               <X size={16} />
             </button>
@@ -67,7 +67,7 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
             <X size={16} />
           </button>
         )}
-        <div className="p-6">{children}</div>
+        <div className="p-6 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   )

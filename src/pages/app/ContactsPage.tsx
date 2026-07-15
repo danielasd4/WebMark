@@ -31,6 +31,7 @@ export function ContactsPage() {
   const [showImport, setShowImport] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const { data: contacts = [], isLoading, error } = useContacts(search)
   const createContact = useCreateContact()
@@ -45,13 +46,24 @@ export function ContactsPage() {
     setSelected(selected.length === contacts.length ? [] : contacts.map((c) => c.id))
 
   const handleSave = async (data: Partial<Contact>) => {
-    if (editingContact) {
-      await updateContact.mutateAsync({ id: editingContact.id, values: data })
-    } else {
-      await createContact.mutateAsync(data)
+    try {
+      setSaveError(null)
+      if (editingContact) {
+        await updateContact.mutateAsync({ id: editingContact.id, values: data })
+      } else {
+        await createContact.mutateAsync(data)
+      }
+      setShowForm(false)
+      setEditingContact(null)
+    } catch (err: any) {
+      setSaveError(err?.message ?? 'Erro ao salvar contato. Tente novamente.')
     }
+  }
+
+  const handleCloseForm = () => {
     setShowForm(false)
     setEditingContact(null)
+    setSaveError(null)
   }
 
   const handleDelete = async (id: string) => {
@@ -282,15 +294,16 @@ export function ContactsPage() {
       {/* Contact Form Modal */}
       <Modal
         open={showForm}
-        onClose={() => { setShowForm(false); setEditingContact(null) }}
+        onClose={handleCloseForm}
         title={editingContact ? 'Editar contato' : 'Novo contato'}
         size="lg"
       >
         <ContactForm
           contact={editingContact}
           onSave={handleSave}
-          onCancel={() => { setShowForm(false); setEditingContact(null) }}
+          onCancel={handleCloseForm}
           isSaving={createContact.isPending || updateContact.isPending}
+          error={saveError}
         />
       </Modal>
 
