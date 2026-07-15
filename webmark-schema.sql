@@ -1,18 +1,30 @@
--- WebMark — Supabase Schema v1.0
--- Multi-tenant CRM + Email Marketing SaaS
--- Run this in your Supabase SQL Editor
+-- WebMark — Schema Limpo v1.0
+-- Execute este arquivo no SQL Editor do Supabase:
+-- https://supabase.com/dashboard/project/ngsrmetqfesecscdshco/sql
 
 -- ─── Extensions ───────────────────────────────────────
 create extension if not exists "uuid-ossp";
-create extension if not exists "pg_trgm";
 
--- ─── Plans ────────────────────────────────────────────
-create type plan_type as enum ('start', 'essencial', 'pro', 'business', 'enterprise');
-create type contact_status as enum ('active', 'inactive', 'lead', 'customer', 'unsubscribed');
-create type campaign_status as enum ('draft', 'scheduled', 'sending', 'sent', 'paused', 'cancelled');
-create type automation_status as enum ('active', 'inactive', 'draft');
-create type automation_trigger_type as enum ('contact_added', 'tag_added', 'list_added', 'date', 'link_clicked', 'email_opened');
-create type email_event_type as enum ('sent', 'delivered', 'opened', 'clicked', 'bounced', 'unsubscribed', 'spam');
+-- ─── Enums ────────────────────────────────────────────
+do $$ begin
+  create type plan_type as enum ('start', 'essencial', 'pro', 'business', 'enterprise');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type contact_status as enum ('active', 'inactive', 'lead', 'customer', 'unsubscribed');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type campaign_status as enum ('draft', 'scheduled', 'sending', 'sent', 'paused', 'cancelled');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type automation_status as enum ('active', 'inactive', 'draft');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type email_event_type as enum ('sent', 'delivered', 'opened', 'clicked', 'bounced', 'unsubscribed', 'spam');
+exception when duplicate_object then null; end $$;
 
 -- ─── Organizations ────────────────────────────────────
 create table if not exists organizations (
@@ -134,25 +146,12 @@ create table if not exists email_events (
   occurred_at     timestamptz not null default now()
 );
 
--- ─── Templates ────────────────────────────────────────
-create table if not exists email_templates (
-  id              uuid primary key default uuid_generate_v4(),
-  organization_id uuid references organizations(id) on delete cascade,
-  name            text not null,
-  thumbnail_url   text,
-  content_html    text not null,
-  content_json    jsonb,
-  category        text,
-  created_at      timestamptz not null default now(),
-  updated_at      timestamptz not null default now()
-);
-
 -- ─── Automations ──────────────────────────────────────
 create table if not exists automations (
   id              uuid primary key default uuid_generate_v4(),
   organization_id uuid not null references organizations(id) on delete cascade,
   name            text not null,
-  trigger_type    automation_trigger_type not null,
+  trigger_type    text not null,
   trigger_config  jsonb,
   steps           jsonb not null default '[]',
   status          automation_status not null default 'draft',
@@ -170,35 +169,59 @@ alter table contact_list_members enable row level security;
 alter table campaigns enable row level security;
 alter table campaign_stats enable row level security;
 alter table email_events enable row level security;
-alter table email_templates enable row level security;
 alter table automations enable row level security;
 
+-- Helper function
 create or replace function get_user_org_id()
 returns uuid language sql security definer as $$
   select organization_id from organization_members where user_id = auth.uid() limit 1;
 $$;
 
--- Org policies
+-- Organizations
+drop policy if exists "org_select" on organizations;
+drop policy if exists "org_owner_all" on organizations;
 create policy "org_select" on organizations for select using (id = get_user_org_id());
 create policy "org_owner_all" on organizations for all using (owner_id = auth.uid());
 
--- Contacts policies
+-- Contacts
+drop policy if exists "contacts_select" on contacts;
+drop policy if exists "contacts_all" on contacts;
 create policy "contacts_select" on contacts for select using (organization_id = get_user_org_id());
 create policy "contacts_all" on contacts for all using (organization_id = get_user_org_id());
 
--- Lists policies
+-- Lists
+drop policy if exists "lists_select" on contact_lists;
+drop policy if exists "lists_all" on contact_lists;
 create policy "lists_select" on contact_lists for select using (organization_id = get_user_org_id());
 create policy "lists_all" on contact_lists for all using (organization_id = get_user_org_id());
 
--- Campaigns policies
+-- Contact list members
+drop policy if exists "list_members_select" on contact_list_members;
+drop policy if exists "list_members_all" on contact_list_members;
+create policy "list_members_select" on contact_list_members for select
+  using (exists (select 1 from contact_lists cl where cl.id = list_id and cl.organization_id = get_user_org_id()));
+create policy "list_members_all" on contact_list_members for all
+  using (exists (select 1 from contact_lists cl where cl.id = list_id and cl.organization_id = get_user_org_id()));
+
+-- Campaigns
+drop policy if exists "campaigns_select" on campaigns;
+drop policy if exists "campaigns_all" on campaigns;
 create policy "campaigns_select" on campaigns for select using (organization_id = get_user_org_id());
 create policy "campaigns_all" on campaigns for all using (organization_id = get_user_org_id());
 
--- Automations policies
+-- Campaign stats
+drop policy if exists "stats_select" on campaign_stats;
+create policy "stats_select" on campaign_stats for select
+  using (exists (select 1 from campaigns c where c.id = campaign_id and c.organization_id = get_user_org_id()));
+
+-- Automations
+drop policy if exists "automations_select" on automations;
+drop policy if exists "automations_all" on automations;
 create policy "automations_select" on automations for select using (organization_id = get_user_org_id());
 create policy "automations_all" on automations for all using (organization_id = get_user_org_id());
 
--- Email events — read only
+-- Email events (read only)
+drop policy if exists "events_select" on email_events;
 create policy "events_select" on email_events for select using (organization_id = get_user_org_id());
 
 -- ─── Auto-create org on signup ────────────────────────
@@ -206,7 +229,7 @@ create or replace function handle_new_user()
 returns trigger language plpgsql security definer as $$
 declare
   new_org_id uuid;
-  org_slug text;
+  org_slug   text;
 begin
   org_slug := lower(regexp_replace(
     coalesce(new.raw_user_meta_data->>'company_name', 'empresa'),
@@ -232,70 +255,17 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure handle_new_user();
 
--- Updated_at triggers
+-- ─── updated_at triggers ──────────────────────────────
 create or replace function update_updated_at() returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end;
 $$;
+
+drop trigger if exists set_ts on organizations;
+drop trigger if exists set_ts on contacts;
+drop trigger if exists set_ts on contact_lists;
+drop trigger if exists set_ts on campaigns;
+
 create trigger set_ts before update on organizations for each row execute procedure update_updated_at();
 create trigger set_ts before update on contacts for each row execute procedure update_updated_at();
 create trigger set_ts before update on contact_lists for each row execute procedure update_updated_at();
 create trigger set_ts before update on campaigns for each row execute procedure update_updated_at();
-
--- Legacy (kept for reference)
-CREATE TABLE IF NOT EXISTS user_profile_settings (
-  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  total_cash DECIMAL(15, 2) DEFAULT 0,
-  total_fixed_costs DECIMAL(15, 2) DEFAULT 0,
-  min_hourly_rate DECIMAL(15, 2) DEFAULT 0,
-  has_completed_onboarding BOOLEAN DEFAULT false,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Enable Row Level Security
-ALTER TABLE user_profile_settings ENABLE ROW LEVEL SECURITY;
-
--- Policies: Users can only manage their own settings
-CREATE POLICY "Users can view own settings" 
-ON user_profile_settings FOR SELECT 
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own settings" 
-ON user_profile_settings FOR UPDATE 
-USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own settings" 
-ON user_profile_settings FOR INSERT 
-WITH CHECK (auth.uid() = user_id);
-
--- Migration for existing tables to ensure is_archived and user_id consistency
--- Ensure 'transactions' has correct indexing for filtering
-CREATE INDEX IF NOT EXISTS idx_transactions_company_id ON transactions(company_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_is_archived ON transactions(is_archived);
-
--- Ensure 'recurring_bills' follows the same pattern
-CREATE INDEX IF NOT EXISTS idx_recurring_bills_company_id ON recurring_bills(company_id);
-CREATE INDEX IF NOT EXISTS idx_recurring_bills_user_id ON recurring_bills(user_id);
-
--- Table for monthly snapshots (Immutable history)
-CREATE TABLE IF NOT EXISTS monthly_snapshots (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  month INTEGER NOT NULL,
-  year INTEGER NOT NULL,
-  total_income DECIMAL(15, 2) DEFAULT 0,
-  total_expense DECIMAL(15, 2) DEFAULT 0,
-  net_profit DECIMAL(15, 2) DEFAULT 0,
-  predictable_revenue DECIMAL(15, 2) DEFAULT 0,
-  variable_revenue DECIMAL(15, 2) DEFAULT 0,
-  total_hours DECIMAL(10, 2) DEFAULT 0,
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, month, year)
-);
-
-ALTER TABLE monthly_snapshots ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can manage own snapshots" 
-ON monthly_snapshots FOR ALL 
-USING (auth.uid() = user_id);
