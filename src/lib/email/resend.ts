@@ -40,9 +40,6 @@ export class ResendProvider implements EmailProvider {
   }
 }
 
-// Singleton — uses VITE_RESEND_API_KEY env variable
-// NOTE: Never expose API keys in client-side code in production.
-// These calls should go through a Supabase Edge Function.
-export const resendProvider = new ResendProvider(
-  import.meta.env.VITE_RESEND_API_KEY || ''
-)
+// This class is kept for server-side / Netlify Function usage only.
+// Do NOT instantiate with a VITE_ key — API keys must stay server-side.
+export const resendProvider = new ResendProvider('')

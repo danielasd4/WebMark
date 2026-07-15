@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { User, Building2, Mail, Key, Bell, Shield, Globe, CreditCard, Webhook } from 'lucide-react'
+import { User, Building2, Mail, Key, Bell, Shield, Globe, CreditCard, Webhook, Loader2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { cn } from '../../lib/utils'
+import { useOrganization } from '../../hooks/useOrganization'
+import { useAuth } from '../../hooks/useAuth'
 
 const sections = [
   { id: 'profile', label: 'Perfil', icon: User },
@@ -16,8 +18,18 @@ const sections = [
   { id: 'security', label: 'Segurança', icon: Shield },
 ]
 
+const planLabels: Record<string, { name: string; price: string; limit: number }> = {
+  start:      { name: 'Start',      price: 'Grátis',       limit: 1_000 },
+  essencial:  { name: 'Essencial',  price: 'R$ 79,90/mês', limit: 5_000 },
+  pro:        { name: 'Pro',        price: 'R$ 179/mês',   limit: 25_000 },
+  business:   { name: 'Business',   price: 'R$ 399/mês',   limit: 100_000 },
+  enterprise: { name: 'Enterprise', price: 'Sob consulta',  limit: 0 },
+}
+
 export function SettingsPage() {
   const [active, setActive] = useState('profile')
+  const { user } = useAuth()
+  const { data: org, isLoading: orgLoading } = useOrganization()
 
   return (
     <div className="space-y-6">
@@ -56,8 +68,8 @@ export function SettingsPage() {
               </div>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <Input label="Nome completo" defaultValue="Daniel Barbosa" />
-                  <Input label="E-mail" defaultValue="danielbarbosacreator@gmail.com" type="email" />
+                  <Input label="Nome completo" defaultValue={user?.user_metadata?.full_name ?? ''} />
+                  <Input label="E-mail" defaultValue={user?.email ?? ''} type="email" readOnly />
                 </div>
                 <Input label="Telefone" placeholder="(11) 99999-0000" />
               </div>
@@ -143,25 +155,37 @@ export function SettingsPage() {
                 <h2 className="font-semibold text-zinc-900 mb-1">Plano e cobrança</h2>
                 <p className="text-sm text-zinc-500">Gerencie seu plano e forma de pagamento</p>
               </div>
-              <div className="bg-zinc-50 rounded-xl p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <span className="text-xs font-semibold text-zinc-500 uppercase">Plano atual</span>
-                    <p className="text-xl font-bold text-zinc-900 mt-1">Essencial</p>
-                    <p className="text-sm text-zinc-500">R$ 79,90/mês · 5.000 envios</p>
-                  </div>
-                  <Button variant="outline" size="sm">Fazer upgrade</Button>
+              {orgLoading ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 size={20} className="animate-spin text-zinc-400" />
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-zinc-500">
-                    <span>Envios utilizados</span>
-                    <span>1.240 / 5.000</span>
+              ) : org ? (() => {
+                const plan = planLabels[org.plan] ?? planLabels.start
+                const used = org.sends_used ?? 0
+                const limit = org.sends_limit ?? plan.limit
+                const pct = limit > 0 ? Math.min((used / limit) * 100, 100) : 0
+                return (
+                  <div className="bg-zinc-50 rounded-xl p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <span className="text-xs font-semibold text-zinc-500 uppercase">Plano atual</span>
+                        <p className="text-xl font-bold text-zinc-900 mt-1">{plan.name}</p>
+                        <p className="text-sm text-zinc-500">{plan.price} · {limit.toLocaleString('pt-BR')} envios</p>
+                      </div>
+                      <Button variant="outline" size="sm">Fazer upgrade</Button>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-zinc-500">
+                        <span>Envios utilizados</span>
+                        <span><strong className="text-zinc-900">{used.toLocaleString('pt-BR')}</strong> / {limit.toLocaleString('pt-BR')}</span>
+                      </div>
+                      <div className="h-2 bg-zinc-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-zinc-900 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
                   </div>
-                  <div className="h-2 bg-zinc-200 rounded-full">
-                    <div className="h-full bg-zinc-900 rounded-full" style={{ width: '24.8%' }} />
-                  </div>
-                </div>
-              </div>
+                )
+              })() : null}
               <Button variant="outline" size="sm">Gerenciar no Stripe →</Button>
             </div>
           )}

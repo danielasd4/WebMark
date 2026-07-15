@@ -11,7 +11,7 @@ import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { EmailEditor } from '../../components/email/EmailEditor'
 import { useLists } from '../../hooks/useLists'
-import { useCreateCampaign } from '../../hooks/useCampaigns'
+import { useCreateCampaign, useUpdateCampaign } from '../../hooks/useCampaigns'
 
 const steps = ['Configurações', 'Conteúdo', 'Listas', 'Revisão']
 
@@ -48,6 +48,7 @@ export function NewCampaignPage() {
 
   const { data: lists = [], isLoading: listsLoading } = useLists()
   const createCampaign = useCreateCampaign()
+  const updateCampaign = useUpdateCampaign()
 
   const { register, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -85,11 +86,23 @@ export function NewCampaignPage() {
       })
 
       if (status === 'sending' && campaign?.id) {
-        await fetch('/.netlify/functions/send-campaign', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ campaign_id: campaign.id }),
-        })
+        try {
+          const res = await fetch('/.netlify/functions/send-campaign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ campaign_id: campaign.id }),
+          })
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}))
+            await updateCampaign.mutateAsync({ id: campaign.id, values: { status: 'draft' } })
+            setFinishError(`Campanha salva como rascunho. Erro no envio: ${body.error || res.statusText}`)
+            return
+          }
+        } catch {
+          await updateCampaign.mutateAsync({ id: campaign.id, values: { status: 'draft' } })
+          setFinishError('Campanha salva como rascunho. O envio de e-mail só funciona no ambiente Netlify.')
+          return
+        }
       }
 
       navigate('/app/campaigns')
