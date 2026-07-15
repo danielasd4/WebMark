@@ -56,24 +56,33 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-white flex">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-zinc-900 flex-col justify-between p-12">
-        <Link to="/" className="flex items-center gap-2">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-12">
+        <video
+          src="/login-video.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/30" />
+        <Link to="/" className="relative flex items-center gap-2">
           <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
             <Mail size={16} className="text-zinc-900" />
           </div>
           <span className="font-semibold text-white">WebMark</span>
         </Link>
-        <div>
+        <div className="relative">
           <p className="text-2xl font-semibold text-white leading-snug mb-4">
             "Importei minha lista inteira em 5 minutos e já mandei minha primeira campanha."
           </p>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-zinc-700 rounded-full flex items-center justify-center text-white font-semibold">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white font-semibold">
               AB
             </div>
             <div>
               <p className="text-sm font-medium text-white">Ana Beatriz Silva</p>
-              <p className="text-sm text-zinc-400">CEO, Moda Sustentável</p>
+              <p className="text-sm text-white/70">CEO, Moda Sustentável</p>
             </div>
           </div>
         </div>

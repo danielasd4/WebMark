@@ -20,6 +20,7 @@ type FormData = z.infer<typeof schema>
 export function ListsPage() {
   const [showForm, setShowForm] = useState(false)
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const { data: lists = [], isLoading, error } = useLists()
   const createList = useCreateList()
@@ -30,9 +31,14 @@ export function ListsPage() {
   })
 
   const onSubmit = async (data: FormData) => {
-    await createList.mutateAsync(data)
-    reset()
-    setShowForm(false)
+    try {
+      setFormError(null)
+      await createList.mutateAsync(data)
+      reset()
+      setShowForm(false)
+    } catch (err: any) {
+      setFormError(err?.message ?? 'Erro ao criar lista. Tente novamente.')
+    }
   }
 
   const handleDelete = async (id: string) => {
@@ -128,7 +134,7 @@ export function ListsPage() {
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => { setShowForm(false); reset() }} title="Nova lista" size="sm">
+      <Modal open={showForm} onClose={() => { setShowForm(false); reset(); setFormError(null) }} title="Nova lista" size="sm">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input
             label="Nome da lista *"
@@ -142,6 +148,9 @@ export function ListsPage() {
             rows={3}
             {...register('description')}
           />
+          {formError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{formError}</p>
+          )}
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => { setShowForm(false); reset() }} className="flex-1">
               Cancelar

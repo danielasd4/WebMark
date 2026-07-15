@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
+import { EmailEditor } from '../../components/email/EmailEditor'
 import { useLists } from '../../hooks/useLists'
 import { useCreateCampaign } from '../../hooks/useCampaigns'
 
@@ -42,6 +43,9 @@ export function NewCampaignPage() {
   const [scheduledAt, setScheduledAt] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
 
+  const [contentHtml, setContentHtml] = useState('')
+  const [finishError, setFinishError] = useState<string | null>(null)
+
   const { data: lists = [], isLoading: listsLoading } = useLists()
   const createCampaign = useCreateCampaign()
 
@@ -70,15 +74,28 @@ export function NewCampaignPage() {
     const values = getValues()
     const status = asDraft ? 'draft' : sendMode === 'now' ? 'sending' : 'scheduled'
 
-    await createCampaign.mutateAsync({
-      ...values,
-      content_html: '',
-      status,
-      list_ids: selectedLists,
-      scheduled_at: sendMode === 'schedule' && scheduledAt ? scheduledAt : undefined,
-    })
+    try {
+      setFinishError(null)
+      const campaign = await createCampaign.mutateAsync({
+        ...values,
+        content_html: contentHtml,
+        status,
+        list_ids: selectedLists,
+        scheduled_at: sendMode === 'schedule' && scheduledAt ? scheduledAt : undefined,
+      })
 
-    navigate('/app/campaigns')
+      if (status === 'sending' && campaign?.id) {
+        await fetch('/.netlify/functions/send-campaign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ campaign_id: campaign.id }),
+        })
+      }
+
+      navigate('/app/campaigns')
+    } catch (err: any) {
+      setFinishError(err?.message ?? 'Erro ao criar campanha. Tente novamente.')
+    }
   }
 
   const totalEstimated = lists
@@ -200,7 +217,7 @@ export function NewCampaignPage() {
 
           <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-xs">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-zinc-900">Pré-visualização</h2>
+              <h2 className="font-semibold text-zinc-900">Conteúdo do e-mail</h2>
               <div className="flex gap-1 bg-zinc-100 p-1 rounded-lg">
                 <button
                   onClick={() => setPreview('desktop')}
@@ -216,22 +233,17 @@ export function NewCampaignPage() {
                 </button>
               </div>
             </div>
-            <div className={`mx-auto bg-zinc-50 rounded-xl border border-zinc-100 p-6 ${preview === 'mobile' ? 'max-w-sm' : 'w-full'}`}>
-              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-                <div className="bg-zinc-900 h-2 w-full" />
-                <div className="p-6 space-y-4">
-                  <div className="h-4 bg-zinc-100 rounded w-3/4" />
-                  <div className="h-32 bg-zinc-100 rounded" />
-                  <div className="space-y-2">
-                    <div className="h-3 bg-zinc-100 rounded" />
-                    <div className="h-3 bg-zinc-100 rounded w-5/6" />
-                    <div className="h-3 bg-zinc-100 rounded w-4/6" />
-                  </div>
-                  <div className="h-9 bg-zinc-900 rounded-lg w-32 mx-auto" />
-                </div>
+            {preview === 'desktop' ? (
+              <EmailEditor onChange={setContentHtml} />
+            ) : (
+              <div className="max-w-sm mx-auto border border-zinc-200 rounded-xl overflow-hidden">
+                <div className="bg-zinc-900 h-1.5 w-full" />
+                <div
+                  className="p-4 text-sm prose prose-sm max-w-none min-h-[200px] bg-white"
+                  dangerouslySetInnerHTML={{ __html: contentHtml || '<p class="text-zinc-400">Escreva o conteúdo na aba Desktop para ver o preview mobile.</p>' }}
+                />
               </div>
-            </div>
-            <p className="text-xs text-zinc-400 text-center mt-3">Editor drag-and-drop — disponível em breve</p>
+            )}
           </div>
 
           <div className="flex justify-between">
@@ -362,6 +374,10 @@ export function NewCampaignPage() {
             </div>
           </div>
 
+          {finishError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{finishError}</p>
+          )}
+
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setStep(2)} icon={<ArrowLeft size={14} />}>Anterior</Button>
             <div className="flex gap-2">
@@ -377,7 +393,7 @@ export function NewCampaignPage() {
                 onClick={() => handleFinish(false)}
                 icon={<Send size={14} />}
               >
-                {sendMode === 'schedule' ? 'Agendar campanha' : 'Criar campanha'}
+                {sendMode === 'schedule' ? 'Agendar campanha' : sendMode === 'now' ? 'Enviar agora' : 'Criar campanha'}
               </Button>
             </div>
           </div>
