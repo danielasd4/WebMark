@@ -47,7 +47,10 @@ export function useCreateContact() {
         .insert({ ...values, organization_id: org.id })
         .select()
         .single()
-      if (error) throw error
+      if (error) {
+        if (error.code === '23505') throw new Error('Já existe um contato com esse e-mail.')
+        throw error
+      }
       return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['contacts'] }),
