@@ -37,10 +37,14 @@ export const handler = async (event) => {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Campaign not found' }) }
     }
 
-    const sendToAll = campaign.content_json?.send_to_all === true
+    const cj = campaign.content_json || {}
+    const sendToAll = cj.send_to_all === true
+    const filterStatuses = cj.filter_statuses || []
+    const contactIds = cj.contact_ids || []
     const listIds = campaign.list_ids || []
 
-    if (!sendToAll && listIds.length === 0) {
+    const noRecipients = !sendToAll && filterStatuses.length === 0 && contactIds.length === 0 && listIds.length === 0
+    if (noRecipients) {
       await supabase.from('campaigns').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', campaign_id)
       return { statusCode: 200, headers, body: JSON.stringify({ sent: 0 }) }
     }
@@ -48,16 +52,32 @@ export const handler = async (event) => {
     let contacts = []
 
     if (sendToAll) {
-      // Send to all non-unsubscribed contacts in the org
-      const { data: allContacts, error: allErr } = await supabase
+      const { data, error } = await supabase
         .from('contacts')
         .select('id, email, first_name, last_name, status')
         .eq('organization_id', campaign.organization_id)
         .neq('status', 'unsubscribed')
-      if (allErr) throw allErr
-      contacts = allContacts || []
+      if (error) throw error
+      contacts = data || []
+    } else if (filterStatuses.length > 0) {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('id, email, first_name, last_name, status')
+        .eq('organization_id', campaign.organization_id)
+        .in('status', filterStatuses)
+        .neq('status', 'unsubscribed')
+      if (error) throw error
+      contacts = data || []
+    } else if (contactIds.length > 0) {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('id, email, first_name, last_name, status')
+        .in('id', contactIds)
+        .neq('status', 'unsubscribed')
+      if (error) throw error
+      contacts = data || []
     } else {
-      // Get all contacts from selected lists, deduplicated
+      // By list
       const { data: members, error: membersErr } = await supabase
         .from('contact_list_members')
         .select('contacts(id, email, first_name, last_name, status)')

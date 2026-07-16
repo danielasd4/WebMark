@@ -6,7 +6,8 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import {
   ArrowLeft, ArrowRight, Send, Calendar, Sparkles,
-  Smartphone, Monitor, CheckCircle2, Users, Loader2, Mail
+  Smartphone, Monitor, CheckCircle2, Users, Loader2, Mail,
+  Search, X, UserCheck, Filter, List
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
@@ -14,7 +15,9 @@ import { EmailEditor } from '../../components/email/EmailEditor'
 import { useLists } from '../../hooks/useLists'
 import { useCreateCampaign, useUpdateCampaign } from '../../hooks/useCampaigns'
 import { useOrganization } from '../../hooks/useOrganization'
+import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
+import type { ContactStatus } from '../../types'
 
 const steps = ['Configurações', 'Conteúdo', 'Destinatários', 'Revisão']
 
@@ -39,8 +42,11 @@ const templates = [
 export function NewCampaignPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
-  const [sendToAll, setSendToAll] = useState(false)
+  const [recipientMode, setRecipientMode] = useState<'all' | 'filter' | 'list' | 'individual'>('all')
+  const [filterStatuses, setFilterStatuses] = useState<ContactStatus[]>([])
   const [selectedLists, setSelectedLists] = useState<string[]>([])
+  const [selectedContacts, setSelectedContacts] = useState<{ id: string; first_name: string; last_name?: string; email: string }[]>([])
+  const [contactSearch, setContactSearch] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState('newsletter')
   const [preview, setPreview] = useState<'desktop' | 'mobile'>('desktop')
   const [sendMode, setSendMode] = useState<'now' | 'schedule' | 'draft'>('draft')
@@ -49,6 +55,7 @@ export function NewCampaignPage() {
   const [contentHtml, setContentHtml] = useState('')
   const [finishError, setFinishError] = useState<string | null>(null)
 
+  const { user } = useAuth()
   const { data: org } = useOrganization()
   const { data: lists = [], isLoading: listsLoading } = useLists()
   const createCampaign = useCreateCampaign()
@@ -67,6 +74,38 @@ export function NewCampaignPage() {
     enabled: !!org,
   })
 
+  const { data: filteredCount = 0 } = useQuery({
+    queryKey: ['contacts-count-filter', org?.id, filterStatuses],
+    queryFn: async () => {
+      if (!org || filterStatuses.length === 0) return 0
+      const { count } = await supabase
+        .from('contacts')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', org.id)
+        .in('status', filterStatuses)
+        .neq('status', 'unsubscribed')
+      return count ?? 0
+    },
+    enabled: !!org && recipientMode === 'filter',
+  })
+
+  const { data: searchedContacts = [] } = useQuery({
+    queryKey: ['contacts-search', org?.id, contactSearch],
+    queryFn: async () => {
+      if (!org || !contactSearch.trim()) return []
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('id, first_name, last_name, email, status')
+        .eq('organization_id', org.id)
+        .neq('status', 'unsubscribed')
+        .or(`first_name.ilike.%${contactSearch}%,last_name.ilike.%${contactSearch}%,email.ilike.%${contactSearch}%`)
+        .limit(20)
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!org && recipientMode === 'individual' && contactSearch.trim().length > 0,
+  })
+
   const { register, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { from_name: '', from_email: '' },
@@ -77,7 +116,11 @@ export function NewCampaignPage() {
       const cur = getValues('from_name')
       if (!cur) setValue('from_name', org.name)
     }
-  }, [org?.name])
+    if (user?.email) {
+      const cur = getValues('from_email')
+      if (!cur) setValue('from_email', user.email)
+    }
+  }, [org?.name, user?.email])
 
   const subject = watch('subject') ?? ''
 
@@ -92,22 +135,39 @@ export function NewCampaignPage() {
   const toggleList = (id: string) =>
     setSelectedLists(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
+  const toggleFilterStatus = (s: ContactStatus) =>
+    setFilterStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
+
+  const toggleContact = (c: { id: string; first_name: string; last_name?: string; email: string }) =>
+    setSelectedContacts(prev => prev.some(x => x.id === c.id) ? prev.filter(x => x.id !== c.id) : [...prev, c])
+
   const handleFinish = async (asDraft = false) => {
     const values = getValues()
     const status = asDraft ? 'draft' : sendMode === 'now' ? 'sending' : 'scheduled'
 
     try {
       setFinishError(null)
+      const recipientJson =
+        recipientMode === 'all' ? { send_to_all: true }
+        : recipientMode === 'filter' ? { filter_statuses: filterStatuses }
+        : recipientMode === 'individual' ? { contact_ids: selectedContacts.map(c => c.id) }
+        : undefined
+
       const campaign = await createCampaign.mutateAsync({
         ...values,
         content_html: contentHtml,
-        content_json: sendToAll ? { send_to_all: true } : undefined,
+        content_json: recipientJson,
         status,
-        list_ids: sendToAll ? [] : selectedLists,
+        list_ids: recipientMode === 'list' ? selectedLists : [],
         scheduled_at: sendMode === 'schedule' && scheduledAt ? scheduledAt : undefined,
       })
 
       if (status === 'sending' && campaign?.id) {
+        if (import.meta.env.DEV) {
+          await updateCampaign.mutateAsync({ id: campaign.id, values: { status: 'draft' } })
+          setFinishError('Campanha salva como rascunho. O envio de e-mails só funciona no ambiente publicado (Netlify). Faça deploy para testar o envio real.')
+          return
+        }
         try {
           const res = await fetch('/.netlify/functions/send-campaign', {
             method: 'POST',
@@ -133,11 +193,17 @@ export function NewCampaignPage() {
     }
   }
 
-  const recipientCount = sendToAll
-    ? totalContacts
+  const recipientCount =
+    recipientMode === 'all' ? totalContacts
+    : recipientMode === 'filter' ? filteredCount
+    : recipientMode === 'individual' ? selectedContacts.length
     : lists.filter(l => selectedLists.includes(l.id)).reduce((acc, l) => acc + (l.contact_count ?? 0), 0)
 
-  const canProceedFromStep2 = sendToAll || selectedLists.length > 0
+  const canProceedFromStep2 =
+    recipientMode === 'all' ||
+    (recipientMode === 'filter' && filterStatuses.length > 0) ||
+    (recipientMode === 'list' && selectedLists.length > 0) ||
+    (recipientMode === 'individual' && selectedContacts.length > 0)
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -171,8 +237,8 @@ export function NewCampaignPage() {
           <h2 className="font-semibold text-zinc-900">Configurações da campanha</h2>
           <div className="space-y-4">
             <Input
-              label="Nome interno da campanha *"
-              placeholder="Ex: Newsletter Agosto 2024"
+              label="Sobre o que é esta campanha? *"
+              placeholder="Ex: Promoção de verão, Newsletter de agosto..."
               error={errors.name?.message}
               {...register('name')}
             />
@@ -202,18 +268,25 @@ export function NewCampaignPage() {
               <p className="text-xs text-zinc-400">{subject.length}/150 caracteres</p>
             </div>
 
-            <Input
-              label="Texto de preview"
-              placeholder="Complementa o assunto na caixa de entrada..."
-              {...register('preview_text')}
-            />
-
             <div className="grid grid-cols-2 gap-4">
               <Input label="Nome do remetente *" error={errors.from_name?.message} {...register('from_name')} />
               <Input label="E-mail do remetente *" type="email" placeholder="contato@suaempresa.com" error={errors.from_email?.message} {...register('from_email')} />
             </div>
 
-            <Input label="Responder para" type="email" placeholder="(opcional)" {...register('reply_to')} />
+            <details className="group">
+              <summary className="text-xs text-zinc-400 cursor-pointer hover:text-zinc-600 list-none flex items-center gap-1">
+                <span className="group-open:hidden">+ Opções avançadas (preview, responder para)</span>
+                <span className="hidden group-open:block">- Ocultar opções avançadas</span>
+              </summary>
+              <div className="mt-3 space-y-3">
+                <Input
+                  label="Texto de preview"
+                  placeholder="Aparece logo após o assunto na caixa de entrada..."
+                  {...register('preview_text')}
+                />
+                <Input label="Responder para" type="email" placeholder="(opcional)" {...register('reply_to')} />
+              </div>
+            </details>
           </div>
 
           <div className="flex justify-end">
@@ -273,11 +346,23 @@ export function NewCampaignPage() {
             {preview === 'desktop' ? (
               <EmailEditor onChange={setContentHtml} />
             ) : (
-              <div className="max-w-sm mx-auto border border-zinc-200 rounded-xl overflow-hidden">
-                <div className="bg-zinc-900 h-1.5 w-full" />
+              <div className="max-w-sm mx-auto border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
+                {/* Simulates email client header */}
+                <div className="bg-zinc-100 border-b border-zinc-200 p-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-400 w-10 shrink-0">De:</span>
+                    <span className="text-xs text-zinc-700 font-medium truncate">
+                      {watch('from_name') || org?.name || 'Remetente'} &lt;{watch('from_email') || user?.email || 'email@exemplo.com'}&gt;
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-400 w-10 shrink-0">Assunto:</span>
+                    <span className="text-xs font-semibold text-zinc-900 truncate">{watch('subject') || '(sem assunto)'}</span>
+                  </div>
+                </div>
                 <div
                   className="p-4 text-sm prose prose-sm max-w-none min-h-[200px] bg-white"
-                  dangerouslySetInnerHTML={{ __html: contentHtml || '<p class="text-zinc-400">Escreva o conteúdo na aba Desktop para ver o preview mobile.</p>' }}
+                  dangerouslySetInnerHTML={{ __html: contentHtml || '<p style="color:#9ca3af">Escreva o conteúdo na aba Visual ou HTML para ver o preview.</p>' }}
                 />
               </div>
             )}
@@ -296,76 +381,195 @@ export function NewCampaignPage() {
           <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-xs space-y-5">
             <div>
               <h2 className="font-semibold text-zinc-900 mb-1">Para quem enviar?</h2>
-              <p className="text-sm text-zinc-500">Escolha o público desta campanha.</p>
+              <p className="text-sm text-zinc-500">Escolha como quer segmentar os destinatários.</p>
             </div>
 
-            {/* Send to all option */}
-            <button
-              onClick={() => { setSendToAll(true); setSelectedLists([]) }}
-              className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
-                sendToAll ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300'
-              }`}
-            >
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                sendToAll ? 'border-zinc-900 bg-zinc-900' : 'border-zinc-300'
-              }`}>
-                {sendToAll && <div className="w-2 h-2 rounded-full bg-white" />}
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-zinc-900">Todos os contatos</p>
-                <p className="text-xs text-zinc-400">Enviar para toda a base cadastrada</p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-lg font-bold text-zinc-900">{totalContacts.toLocaleString('pt-BR')}</p>
-                <p className="text-xs text-zinc-400">contatos</p>
-              </div>
-            </button>
-
-            {/* Divider */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-zinc-100" />
-              <span className="text-xs text-zinc-400 font-medium">ou segmente por lista</span>
-              <div className="flex-1 h-px bg-zinc-100" />
+            {/* Mode selector */}
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: 'all', label: 'Todos os contatos', desc: 'Toda a base', icon: <Users size={15} /> },
+                { id: 'filter', label: 'Por tipo', desc: 'Lead, cliente, ativo...', icon: <Filter size={15} /> },
+                { id: 'list', label: 'Por lista', desc: 'Listas criadas', icon: <List size={15} /> },
+                { id: 'individual', label: 'Individual', desc: 'Selecione um a um', icon: <UserCheck size={15} /> },
+              ] as const).map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setRecipientMode(m.id)}
+                  className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                    recipientMode === m.id ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300'
+                  }`}
+                >
+                  <div className={`shrink-0 ${recipientMode === m.id ? 'text-zinc-900' : 'text-zinc-400'}`}>{m.icon}</div>
+                  <div>
+                    <p className="text-sm font-medium text-zinc-900">{m.label}</p>
+                    <p className="text-xs text-zinc-400">{m.desc}</p>
+                  </div>
+                </button>
+              ))}
             </div>
 
-            {/* Lists */}
-            {listsLoading ? (
-              <div className="flex justify-center py-6">
-                <Loader2 size={20} className="animate-spin text-zinc-400" />
+            {/* Mode: all */}
+            {recipientMode === 'all' && (
+              <div className="bg-zinc-50 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-zinc-900">Toda a base de contatos</p>
+                  <p className="text-xs text-zinc-400">Contatos com status "descadastrado" são excluídos automaticamente</p>
+                </div>
+                <div className="text-right shrink-0 ml-4">
+                  <p className="text-xl font-bold text-zinc-900">{totalContacts.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-zinc-400">contatos</p>
+                </div>
               </div>
-            ) : lists.length === 0 ? (
-              <div className="py-6 text-center border border-dashed border-zinc-200 rounded-xl">
-                <Users size={24} className="text-zinc-300 mx-auto mb-2" />
-                <p className="text-sm text-zinc-500 mb-1">Nenhuma lista criada ainda.</p>
-                <p className="text-xs text-zinc-400 mb-3">
-                  Crie listas em <a href="/app/contacts" className="text-zinc-900 font-medium hover:underline">Contatos</a> selecionando contatos e clicando em "Adicionar à lista".
-                </p>
+            )}
+
+            {/* Mode: filter */}
+            {recipientMode === 'filter' && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-zinc-700">Selecione os tipos de contato:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { value: 'lead', label: 'Lead', desc: 'Potenciais clientes' },
+                    { value: 'customer', label: 'Cliente', desc: 'Clientes ativos' },
+                    { value: 'active', label: 'Ativo', desc: 'Contatos ativos' },
+                    { value: 'inactive', label: 'Inativo', desc: 'Sem interação recente' },
+                  ] as { value: ContactStatus; label: string; desc: string }[]).map(s => (
+                    <button
+                      key={s.value}
+                      onClick={() => toggleFilterStatus(s.value)}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                        filterStatuses.includes(s.value) ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-colors ${
+                        filterStatuses.includes(s.value) ? 'border-zinc-900 bg-zinc-900' : 'border-zinc-300'
+                      }`}>
+                        {filterStatuses.includes(s.value) && <CheckCircle2 size={10} className="text-white" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-zinc-900">{s.label}</p>
+                        <p className="text-xs text-zinc-400">{s.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {filterStatuses.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-zinc-600 bg-zinc-50 rounded-lg px-3 py-2">
+                    <Loader2 size={14} className={filteredCount === 0 && filterStatuses.length > 0 ? 'animate-spin text-zinc-400' : 'hidden'} />
+                    <span><span className="font-semibold text-zinc-900">{filteredCount.toLocaleString('pt-BR')}</span> contatos correspondem ao filtro</span>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="space-y-2">
-                {lists.map((list) => (
-                  <button
-                    key={list.id}
-                    onClick={() => { setSendToAll(false); toggleList(list.id) }}
-                    className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
-                      !sendToAll && selectedLists.includes(list.id) ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300'
-                    }`}
-                  >
-                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
-                      !sendToAll && selectedLists.includes(list.id) ? 'border-zinc-900 bg-zinc-900' : 'border-zinc-300'
-                    }`}>
-                      {!sendToAll && selectedLists.includes(list.id) && <CheckCircle2 size={12} className="text-white" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-zinc-900">{list.name}</p>
-                      {list.description && <p className="text-xs text-zinc-400">{list.description}</p>}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold text-zinc-900">{(list.contact_count ?? 0).toLocaleString('pt-BR')}</p>
-                      <p className="text-xs text-zinc-400">contatos</p>
-                    </div>
-                  </button>
-                ))}
+            )}
+
+            {/* Mode: list */}
+            {recipientMode === 'list' && (
+              listsLoading ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 size={20} className="animate-spin text-zinc-400" />
+                </div>
+              ) : lists.length === 0 ? (
+                <div className="py-6 text-center border border-dashed border-zinc-200 rounded-xl">
+                  <Users size={24} className="text-zinc-300 mx-auto mb-2" />
+                  <p className="text-sm text-zinc-500 mb-1">Nenhuma lista criada ainda.</p>
+                  <p className="text-xs text-zinc-400">
+                    Crie listas em <a href="/app/contacts" className="text-zinc-900 font-medium hover:underline">Contatos</a> selecionando contatos e clicando em "Adicionar à lista".
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {lists.map((list) => (
+                    <button
+                      key={list.id}
+                      onClick={() => toggleList(list.id)}
+                      className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
+                        selectedLists.includes(list.id) ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        selectedLists.includes(list.id) ? 'border-zinc-900 bg-zinc-900' : 'border-zinc-300'
+                      }`}>
+                        {selectedLists.includes(list.id) && <CheckCircle2 size={12} className="text-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-900">{list.name}</p>
+                        {list.description && <p className="text-xs text-zinc-400">{list.description}</p>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold text-zinc-900">{(list.contact_count ?? 0).toLocaleString('pt-BR')}</p>
+                        <p className="text-xs text-zinc-400">contatos</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )
+            )}
+
+            {/* Mode: individual */}
+            {recipientMode === 'individual' && (
+              <div className="space-y-3">
+                <div className="relative">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nome, e-mail ou empresa..."
+                    value={contactSearch}
+                    onChange={e => setContactSearch(e.target.value)}
+                    className="w-full h-9 rounded-lg border border-zinc-200 bg-white pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-xs focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Selected contacts */}
+                {selectedContacts.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedContacts.map(c => (
+                      <span key={c.id} className="inline-flex items-center gap-1.5 bg-zinc-900 text-white text-xs rounded-full px-2.5 py-1">
+                        {c.first_name} {c.last_name || ''}
+                        <button onClick={() => toggleContact(c)} className="hover:text-zinc-300">
+                          <X size={11} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search results */}
+                {contactSearch.trim() && (
+                  <div className="border border-zinc-200 rounded-xl overflow-hidden">
+                    {searchedContacts.length === 0 ? (
+                      <p className="text-sm text-zinc-400 text-center py-4">Nenhum contato encontrado</p>
+                    ) : (
+                      searchedContacts.map(c => {
+                        const isSelected = selectedContacts.some(s => s.id === c.id)
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => toggleContact(c)}
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b last:border-b-0 border-zinc-100 transition-colors ${
+                              isSelected ? 'bg-zinc-50' : 'hover:bg-zinc-50'
+                            }`}
+                          >
+                            <div className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-colors ${
+                              isSelected ? 'border-zinc-900 bg-zinc-900' : 'border-zinc-300'
+                            }`}>
+                              {isSelected && <CheckCircle2 size={10} className="text-white" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-zinc-900 truncate">
+                                {c.first_name} {c.last_name || ''}
+                              </p>
+                              <p className="text-xs text-zinc-400 truncate">{c.email}</p>
+                            </div>
+                            <span className="text-xs text-zinc-400 shrink-0 capitalize">{c.status}</span>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                )}
+
+                {selectedContacts.length === 0 && !contactSearch.trim() && (
+                  <p className="text-sm text-zinc-400 text-center py-3">Digite o nome ou e-mail para encontrar contatos</p>
+                )}
               </div>
             )}
 
@@ -375,10 +579,13 @@ export function NewCampaignPage() {
                 <Mail size={16} className="text-zinc-500 shrink-0" />
                 <div>
                   <p className="text-sm font-semibold text-zinc-900">
-                    {recipientCount.toLocaleString('pt-BR')} destinatários
+                    {recipientCount.toLocaleString('pt-BR')} destinatário{recipientCount !== 1 ? 's' : ''}
                   </p>
                   <p className="text-xs text-zinc-400">
-                    {sendToAll ? 'Toda a base de contatos' : `${selectedLists.length} lista${selectedLists.length > 1 ? 's' : ''} — duplicados removidos automaticamente`}
+                    {recipientMode === 'all' && 'Toda a base de contatos'}
+                    {recipientMode === 'filter' && `Filtro: ${filterStatuses.join(', ')}`}
+                    {recipientMode === 'list' && `${selectedLists.length} lista${selectedLists.length > 1 ? 's' : ''} — duplicados removidos automaticamente`}
+                    {recipientMode === 'individual' && `${selectedContacts.length} contato${selectedContacts.length !== 1 ? 's' : ''} selecionado${selectedContacts.length !== 1 ? 's' : ''} individualmente`}
                   </p>
                 </div>
               </div>
@@ -403,7 +610,13 @@ export function NewCampaignPage() {
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Destinatários', value: recipientCount.toLocaleString('pt-BR') },
-                { label: 'Público', value: sendToAll ? 'Todos os contatos' : `${selectedLists.length} lista${selectedLists.length > 1 ? 's' : ''}` },
+                {
+                  label: 'Público',
+                  value: recipientMode === 'all' ? 'Todos os contatos'
+                    : recipientMode === 'filter' ? `Tipo: ${filterStatuses.join(', ')}`
+                    : recipientMode === 'individual' ? `${selectedContacts.length} individual${selectedContacts.length !== 1 ? 'is' : ''}`
+                    : `${selectedLists.length} lista${selectedLists.length > 1 ? 's' : ''}`
+                },
                 { label: 'Template', value: templates.find(t => t.id === selectedTemplate)?.name || '-' },
                 { label: 'Assunto', value: watch('subject') || '—' },
               ].map(({ label, value }) => (
