@@ -90,11 +90,8 @@ export function RegisterPage() {
     <div className="min-h-screen bg-white flex">
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-zinc-900 flex-col justify-between p-12">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-            <Mail size={16} className="text-zinc-900" />
-          </div>
-          <span className="font-semibold text-white">WebMark</span>
+        <Link to="/" className="flex items-center">
+          <img src="/Identidade Visual/Group 3.png" alt="WebMark" className="h-8 w-auto brightness-0 invert" />
         </Link>
         <div className="space-y-6">
           <h2 className="text-3xl font-semibold text-white leading-snug">
@@ -119,11 +116,8 @@ export function RegisterPage() {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="lg:hidden mb-8">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center">
-                <Mail size={16} className="text-white" />
-              </div>
-              <span className="font-semibold text-zinc-900">WebMark</span>
+            <Link to="/" className="flex items-center">
+              <img src="/Identidade Visual/Group 3.png" alt="WebMark" className="h-8 w-auto" />
             </Link>
           </div>
 

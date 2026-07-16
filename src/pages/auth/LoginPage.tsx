@@ -66,11 +66,8 @@ export function LoginPage() {
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-black/30" />
-        <Link to="/" className="relative flex items-center gap-2">
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-            <Mail size={16} className="text-zinc-900" />
-          </div>
-          <span className="font-semibold text-white">WebMark</span>
+        <Link to="/" className="relative flex items-center">
+          <img src="/Identidade Visual/Group 3.png" alt="WebMark" className="h-8 w-auto brightness-0 invert" />
         </Link>
         <div className="relative">
           <p className="text-2xl font-semibold text-white leading-snug mb-4">
@@ -92,11 +89,8 @@ export function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="lg:hidden mb-8">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center">
-                <Mail size={16} className="text-white" />
-              </div>
-              <span className="font-semibold text-zinc-900">WebMark</span>
+            <Link to="/" className="flex items-center">
+              <img src="/Identidade Visual/Group 3.png" alt="WebMark" className="h-8 w-auto" />
             </Link>
           </div>
 
