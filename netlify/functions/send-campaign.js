@@ -21,6 +21,13 @@ export const handler = async (event) => {
   }
 
   try {
+    const RESEND_KEY = process.env.RESEND_API_KEY
+    const SUPA_URL = process.env.SUPABASE_URL
+    const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY
+
+    if (!RESEND_KEY) return { statusCode: 500, headers, body: JSON.stringify({ error: 'RESEND_API_KEY não configurada no Netlify.' }) }
+    if (!SUPA_URL || !SUPA_KEY) return { statusCode: 500, headers, body: JSON.stringify({ error: 'Variáveis SUPABASE_URL ou SUPABASE_SERVICE_KEY não configuradas no Netlify.' }) }
+
     const { campaign_id } = JSON.parse(event.body || '{}')
     if (!campaign_id) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'campaign_id is required' }) }
@@ -99,7 +106,6 @@ export const handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ sent: 0 }) }
     }
 
-    const RESEND_KEY = process.env.RESEND_API_KEY
     let sent = 0
     let errors = 0
     const batchSize = 100
@@ -127,8 +133,11 @@ export const handler = async (event) => {
       if (res.ok) {
         sent += batch.length
       } else {
-        const errBody = await res.text()
-        console.error('Resend batch error:', errBody)
+        const errText = await res.text()
+        console.error('Resend batch error:', errText)
+        let resendMsg = ''
+        try { resendMsg = JSON.parse(errText)?.message || errText } catch { resendMsg = errText }
+        if (i === 0) throw new Error(`Resend: ${resendMsg}`)
         errors += batch.length
       }
     }

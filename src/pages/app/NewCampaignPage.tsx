@@ -204,14 +204,22 @@ export function NewCampaignPage() {
             body: JSON.stringify({ campaign_id: campaign.id }),
           })
           if (!res.ok) {
-            const body = await res.json().catch(() => ({}))
+            const rawText = await res.text().catch(() => '')
+            let errorMsg = ''
+            try {
+              const body = JSON.parse(rawText)
+              errorMsg = body.error || ''
+            } catch {
+              errorMsg = rawText.slice(0, 200)
+            }
+            if (!errorMsg) errorMsg = `HTTP ${res.status}`
             await updateCampaign.mutateAsync({ id: campaign.id, values: { status: 'draft' } })
-            setFinishError(`Campanha salva como rascunho. Erro no envio: ${body.error || res.statusText}`)
+            setFinishError(`Campanha salva como rascunho. Erro no envio: ${errorMsg}`)
             return
           }
-        } catch {
+        } catch (err: any) {
           await updateCampaign.mutateAsync({ id: campaign.id, values: { status: 'draft' } })
-          setFinishError('Campanha salva como rascunho. O envio de e-mail só funciona no ambiente Netlify.')
+          setFinishError(`Campanha salva como rascunho. Erro de conexão: ${err?.message || 'Verifique as configurações do Netlify.'}`)
           return
         }
       }
