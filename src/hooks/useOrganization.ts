@@ -40,6 +40,11 @@ export function useOrganization() {
           .single()
 
         if (createError) throw createError
+
+        await supabase
+          .from('organization_members')
+          .upsert({ organization_id: newOrg.id, user_id: user.id, role: 'owner' })
+
         return newOrg as Organization
       }
 
