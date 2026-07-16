@@ -37,7 +37,11 @@ export function useCreateContact() {
 
   return useMutation({
     mutationFn: async (values: Partial<Contact>) => {
-      if (!org) throw new Error('Organização não encontrada')
+      if (!org) {
+        const { data: freshOrg } = await supabase.from('organizations').select('*').maybeSingle()
+        if (!freshOrg) throw new Error('Organização não encontrada. Recarregue a página e tente novamente.')
+        return supabase.from('contacts').insert({ ...values, organization_id: freshOrg.id }).select().single().then(r => { if (r.error) throw r.error; return r.data })
+      }
       const { data, error } = await supabase
         .from('contacts')
         .insert({ ...values, organization_id: org.id })

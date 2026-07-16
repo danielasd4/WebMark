@@ -109,7 +109,7 @@ export function ContactsPage() {
           <Button variant="secondary" size="sm" icon={<Upload size={14} />} onClick={() => setShowImport(true)}>
             Importar
           </Button>
-          <Button size="sm" icon={<Plus size={14} />} onClick={() => setShowForm(true)}>
+          <Button size="sm" icon={<Plus size={14} />} onClick={() => { setSaveError(null); setShowForm(true) }}>
             Novo contato
           </Button>
         </div>
