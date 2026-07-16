@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,8 +6,8 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import {
   ArrowLeft, ArrowRight, Send, Calendar, Sparkles,
-  Smartphone, Monitor, CheckCircle2, Users, Loader2, Mail,
-  Search, X, UserCheck, Filter, List
+  CheckCircle2, Users, Loader2, Mail,
+  Search, X, UserCheck, Filter, List, Upload, Code2, Eye
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
@@ -24,35 +24,38 @@ const steps = ['Configurações', 'Conteúdo', 'Destinatários', 'Revisão']
 const schema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   subject: z.string().min(1, 'Assunto é obrigatório'),
-  preview_text: z.string().optional(),
   from_name: z.string().min(1, 'Nome do remetente é obrigatório'),
   from_email: z.string().email('E-mail inválido'),
-  reply_to: z.string().email().optional().or(z.literal('')),
 })
 
 type FormData = z.infer<typeof schema>
 
-const templates = [
-  { id: 'blank', name: 'Em branco', desc: 'Comece do zero' },
-  { id: 'newsletter', name: 'Newsletter', desc: 'Layout de boletim informativo' },
-  { id: 'promo', name: 'Promoção', desc: 'Destaque uma oferta' },
-  { id: 'welcome', name: 'Boas-vindas', desc: 'Recepcione novos contatos' },
-]
-
 export function NewCampaignPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
+
+  // Content design fields
+  const [emailTitle, setEmailTitle] = useState('')
+  const [emailSubtitle, setEmailSubtitle] = useState('')
+  const [emailText, setEmailText] = useState('')
+  const [emailLogoPreview, setEmailLogoPreview] = useState('')
+  const [emailLogoBase64, setEmailLogoBase64] = useState('')
+  const [emailLogoFormat, setEmailLogoFormat] = useState<'png' | 'jpeg'>('png')
+  const [useHtml, setUseHtml] = useState(false)
+  const [contentHtml, setContentHtml] = useState('')
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  // Recipients
   const [recipientMode, setRecipientMode] = useState<'all' | 'filter' | 'list' | 'individual'>('all')
   const [filterStatuses, setFilterStatuses] = useState<ContactStatus[]>([])
   const [selectedLists, setSelectedLists] = useState<string[]>([])
   const [selectedContacts, setSelectedContacts] = useState<{ id: string; first_name: string; last_name?: string; email: string }[]>([])
   const [contactSearch, setContactSearch] = useState('')
-  const [selectedTemplate, setSelectedTemplate] = useState('newsletter')
-  const [preview, setPreview] = useState<'desktop' | 'mobile'>('desktop')
+
+  // Send options
   const [sendMode, setSendMode] = useState<'now' | 'schedule' | 'draft'>('draft')
   const [scheduledAt, setScheduledAt] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-  const [contentHtml, setContentHtml] = useState('')
   const [finishError, setFinishError] = useState<string | null>(null)
 
   const { user } = useAuth()
@@ -132,6 +135,32 @@ export function NewCampaignPage() {
     }, 1200)
   }
 
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setEmailLogoPreview(URL.createObjectURL(file))
+    const reader = new FileReader()
+    reader.onload = (ev) => setEmailLogoBase64(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const generateEmailHtml = () => {
+    if (useHtml) return contentHtml
+    return `<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif;">
+  <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    ${emailLogoBase64 ? `<div style="background:#fafafa;padding:24px;text-align:center;border-bottom:1px solid #f0f0f0;"><img src="${emailLogoBase64}" style="max-height:64px;max-width:200px;object-fit:contain;" /></div>` : ''}
+    <div style="padding:32px;">
+      ${emailTitle ? `<h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#18181b;">${emailTitle}</h1>` : ''}
+      ${emailSubtitle ? `<p style="margin:0 0 20px;font-size:16px;color:#71717a;font-weight:500;">${emailSubtitle}</p>` : ''}
+      ${emailText ? `<div style="font-size:15px;line-height:1.7;color:#3f3f46;">${emailText.replace(/\n/g, '<br/>')}</div>` : ''}
+    </div>
+  </div>
+</body>
+</html>`
+  }
+
   const toggleList = (id: string) =>
     setSelectedLists(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
@@ -155,7 +184,7 @@ export function NewCampaignPage() {
 
       const campaign = await createCampaign.mutateAsync({
         ...values,
-        content_html: contentHtml,
+        content_html: generateEmailHtml(),
         content_json: recipientJson,
         status,
         list_ids: recipientMode === 'list' ? selectedLists : [],
@@ -204,6 +233,8 @@ export function NewCampaignPage() {
     (recipientMode === 'filter' && filterStatuses.length > 0) ||
     (recipientMode === 'list' && selectedLists.length > 0) ||
     (recipientMode === 'individual' && selectedContacts.length > 0)
+
+  const hasContent = emailTitle || emailSubtitle || emailText || emailLogoBase64 || contentHtml
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -272,21 +303,6 @@ export function NewCampaignPage() {
               <Input label="Nome do remetente *" error={errors.from_name?.message} {...register('from_name')} />
               <Input label="E-mail do remetente *" type="email" placeholder="contato@suaempresa.com" error={errors.from_email?.message} {...register('from_email')} />
             </div>
-
-            <details className="group">
-              <summary className="text-xs text-zinc-400 cursor-pointer hover:text-zinc-600 list-none flex items-center gap-1">
-                <span className="group-open:hidden">+ Opções avançadas (preview, responder para)</span>
-                <span className="hidden group-open:block">- Ocultar opções avançadas</span>
-              </summary>
-              <div className="mt-3 space-y-3">
-                <Input
-                  label="Texto de preview"
-                  placeholder="Aparece logo após o assunto na caixa de entrada..."
-                  {...register('preview_text')}
-                />
-                <Input label="Responder para" type="email" placeholder="(opcional)" {...register('reply_to')} />
-              </div>
-            </details>
           </div>
 
           <div className="flex justify-end">
@@ -304,69 +320,166 @@ export function NewCampaignPage() {
       {/* Step 1: Content */}
       {step === 1 && (
         <div className="space-y-6">
-          <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-xs">
-            <h2 className="font-semibold text-zinc-900 mb-4">Escolha um template</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {templates.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setSelectedTemplate(t.id)}
-                  className={`border rounded-xl p-4 text-left transition-all ${
-                    selectedTemplate === t.id ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300'
-                  }`}
-                >
-                  <div className="h-24 bg-zinc-100 rounded-lg mb-3 flex items-center justify-center">
-                    <div className="w-8 h-10 bg-zinc-200 rounded-sm" />
-                  </div>
-                  <p className="text-xs font-medium text-zinc-900">{t.name}</p>
-                  <p className="text-xs text-zinc-400 mt-0.5">{t.desc}</p>
-                </button>
-              ))}
+          <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-xs space-y-5">
+            {/* Mode toggle */}
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-zinc-900">Conteúdo do e-mail</h2>
+              <button
+                type="button"
+                onClick={() => setUseHtml(v => !v)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  useHtml ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300'
+                }`}
+              >
+                <Code2 size={12} />
+                HTML
+              </button>
             </div>
+
+            {!useHtml ? (
+              <div className="space-y-4">
+                {/* Logo */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-700">Logo</label>
+                  <div className="flex items-center gap-3">
+                    {emailLogoPreview ? (
+                      <div className="relative w-16 h-16 rounded-lg border border-zinc-200 overflow-hidden bg-zinc-50 flex items-center justify-center">
+                        <img src={emailLogoPreview} alt="Logo" className="max-w-full max-h-full object-contain" />
+                        <button
+                          type="button"
+                          onClick={() => { setEmailLogoPreview(''); setEmailLogoBase64(''); if (logoInputRef.current) logoInputRef.current.value = '' }}
+                          className="absolute top-0.5 right-0.5 w-4 h-4 bg-zinc-900 text-white rounded-full flex items-center justify-center hover:bg-zinc-700"
+                        >
+                          <X size={9} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => logoInputRef.current?.click()}
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-zinc-200 flex flex-col items-center justify-center gap-1 hover:border-zinc-400 transition-colors text-zinc-400 hover:text-zinc-600"
+                      >
+                        <Upload size={16} />
+                        <span className="text-xs">Upload</span>
+                      </button>
+                    )}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      className="hidden"
+                      accept={emailLogoFormat === 'png' ? 'image/png' : 'image/jpeg'}
+                      onChange={handleLogoChange}
+                    />
+                    <div className="space-y-1">
+                      <p className="text-xs text-zinc-500">Formato</p>
+                      <div className="flex gap-2">
+                        {(['png', 'jpeg'] as const).map(fmt => (
+                          <button
+                            key={fmt}
+                            type="button"
+                            onClick={() => setEmailLogoFormat(fmt)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${
+                              emailLogoFormat === fmt ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400'
+                            }`}
+                          >
+                            {fmt.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-zinc-700">Título</label>
+                  <input
+                    value={emailTitle}
+                    onChange={e => setEmailTitle(e.target.value)}
+                    placeholder="Ex: Novidades da semana"
+                    className="w-full h-9 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-xs focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Subtitle */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-zinc-700">Subtítulo</label>
+                  <input
+                    value={emailSubtitle}
+                    onChange={e => setEmailSubtitle(e.target.value)}
+                    placeholder="Ex: Confira o que preparamos para você este mês"
+                    className="w-full h-9 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-xs focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Body text */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-zinc-700">Texto</label>
+                  <textarea
+                    value={emailText}
+                    onChange={e => setEmailText(e.target.value)}
+                    placeholder="Escreva o conteúdo principal do e-mail..."
+                    rows={5}
+                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-xs focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent resize-none"
+                  />
+                </div>
+              </div>
+            ) : (
+              <EmailEditor onChange={setContentHtml} />
+            )}
           </div>
 
-          <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-xs">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-zinc-900">Conteúdo do e-mail</h2>
-              <div className="flex gap-1 bg-zinc-100 p-1 rounded-lg">
-                <button
-                  onClick={() => setPreview('desktop')}
-                  className={`p-1.5 rounded-md transition-colors ${preview === 'desktop' ? 'bg-white shadow-sm' : 'text-zinc-400'}`}
-                >
-                  <Monitor size={14} />
-                </button>
-                <button
-                  onClick={() => setPreview('mobile')}
-                  className={`p-1.5 rounded-md transition-colors ${preview === 'mobile' ? 'bg-white shadow-sm' : 'text-zinc-400'}`}
-                >
-                  <Smartphone size={14} />
-                </button>
+          {/* Live Preview */}
+          {(hasContent) && (
+            <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center gap-2">
+                <Eye size={14} className="text-zinc-400" />
+                <h3 className="text-sm font-semibold text-zinc-900">Preview do e-mail</h3>
               </div>
-            </div>
-            {preview === 'desktop' ? (
-              <EmailEditor onChange={setContentHtml} />
-            ) : (
-              <div className="max-w-sm mx-auto border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
-                {/* Simulates email client header */}
-                <div className="bg-zinc-100 border-b border-zinc-200 p-3 space-y-1">
+              <div className="border border-zinc-100 rounded-xl overflow-hidden">
+                {/* Email header simulation */}
+                <div className="bg-zinc-50 border-b border-zinc-100 px-4 py-3 space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-zinc-400 w-10 shrink-0">De:</span>
-                    <span className="text-xs text-zinc-700 font-medium truncate">
+                    <span className="text-xs text-zinc-400 w-12 shrink-0">De:</span>
+                    <span className="text-xs text-zinc-700 truncate">
                       {watch('from_name') || org?.name || 'Remetente'} &lt;{watch('from_email') || user?.email || 'email@exemplo.com'}&gt;
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-zinc-400 w-10 shrink-0">Assunto:</span>
+                    <span className="text-xs text-zinc-400 w-12 shrink-0">Assunto:</span>
                     <span className="text-xs font-semibold text-zinc-900 truncate">{watch('subject') || '(sem assunto)'}</span>
                   </div>
                 </div>
-                <div
-                  className="p-4 text-sm prose prose-sm max-w-none min-h-[200px] bg-white"
-                  dangerouslySetInnerHTML={{ __html: contentHtml || '<p style="color:#9ca3af">Escreva o conteúdo na aba Visual ou HTML para ver o preview.</p>' }}
-                />
+                {/* Email body */}
+                <div className="bg-zinc-50 p-4">
+                  <div className="max-w-lg mx-auto bg-white rounded-xl overflow-hidden shadow-sm">
+                    {emailLogoPreview && (
+                      <div className="bg-zinc-50 border-b border-zinc-100 px-6 py-4 flex justify-center">
+                        <img src={emailLogoPreview} alt="Logo" className="max-h-14 max-w-[160px] object-contain" />
+                      </div>
+                    )}
+                    <div className="px-8 py-6 space-y-3">
+                      {emailTitle && (
+                        <h1 className="text-xl font-bold text-zinc-900 leading-tight">{emailTitle}</h1>
+                      )}
+                      {emailSubtitle && (
+                        <p className="text-sm text-zinc-500 font-medium">{emailSubtitle}</p>
+                      )}
+                      {emailText && (
+                        <p className="text-sm text-zinc-700 leading-relaxed whitespace-pre-wrap">{emailText}</p>
+                      )}
+                      {useHtml && contentHtml && (
+                        <div
+                          className="text-sm prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: contentHtml }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setStep(0)} icon={<ArrowLeft size={14} />}>Anterior</Button>
@@ -384,7 +497,6 @@ export function NewCampaignPage() {
               <p className="text-sm text-zinc-500">Escolha como quer segmentar os destinatários.</p>
             </div>
 
-            {/* Mode selector */}
             <div className="grid grid-cols-2 gap-2">
               {([
                 { id: 'all', label: 'Todos os contatos', desc: 'Toda a base', icon: <Users size={15} /> },
@@ -408,7 +520,6 @@ export function NewCampaignPage() {
               ))}
             </div>
 
-            {/* Mode: all */}
             {recipientMode === 'all' && (
               <div className="bg-zinc-50 rounded-xl p-4 flex items-center justify-between">
                 <div>
@@ -422,7 +533,6 @@ export function NewCampaignPage() {
               </div>
             )}
 
-            {/* Mode: filter */}
             {recipientMode === 'filter' && (
               <div className="space-y-3">
                 <p className="text-sm font-medium text-zinc-700">Selecione os tipos de contato:</p>
@@ -461,7 +571,6 @@ export function NewCampaignPage() {
               </div>
             )}
 
-            {/* Mode: list */}
             {recipientMode === 'list' && (
               listsLoading ? (
                 <div className="flex justify-center py-6">
@@ -504,7 +613,6 @@ export function NewCampaignPage() {
               )
             )}
 
-            {/* Mode: individual */}
             {recipientMode === 'individual' && (
               <div className="space-y-3">
                 <div className="relative">
@@ -518,7 +626,6 @@ export function NewCampaignPage() {
                   />
                 </div>
 
-                {/* Selected contacts */}
                 {selectedContacts.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {selectedContacts.map(c => (
@@ -532,7 +639,6 @@ export function NewCampaignPage() {
                   </div>
                 )}
 
-                {/* Search results */}
                 {contactSearch.trim() && (
                   <div className="border border-zinc-200 rounded-xl overflow-hidden">
                     {searchedContacts.length === 0 ? (
@@ -573,7 +679,6 @@ export function NewCampaignPage() {
               </div>
             )}
 
-            {/* Summary */}
             {canProceedFromStep2 && (
               <div className="bg-zinc-50 rounded-xl p-4 flex items-center gap-3">
                 <Mail size={16} className="text-zinc-500 shrink-0" />
@@ -617,8 +722,8 @@ export function NewCampaignPage() {
                     : recipientMode === 'individual' ? `${selectedContacts.length} individual${selectedContacts.length !== 1 ? 'is' : ''}`
                     : `${selectedLists.length} lista${selectedLists.length > 1 ? 's' : ''}`
                 },
-                { label: 'Template', value: templates.find(t => t.id === selectedTemplate)?.name || '-' },
                 { label: 'Assunto', value: watch('subject') || '—' },
+                { label: 'Conteúdo', value: useHtml ? 'HTML personalizado' : (emailTitle || emailSubtitle || emailText ? 'Criado' : 'Em branco') },
               ].map(({ label, value }) => (
                 <div key={label} className="bg-zinc-50 rounded-xl p-4">
                   <p className="text-xs text-zinc-400">{label}</p>
