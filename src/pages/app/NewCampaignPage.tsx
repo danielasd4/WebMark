@@ -309,7 +309,13 @@ export function NewCampaignPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <Input label="Nome do remetente *" error={errors.from_name?.message} {...register('from_name')} />
-              <Input label="E-mail do remetente *" type="email" placeholder="contato@suaempresa.com" error={errors.from_email?.message} {...register('from_email')} />
+              <div>
+                <Input label="E-mail do remetente *" type="email" placeholder="contato@suaempresa.com" error={errors.from_email?.message} {...register('from_email')} />
+                <p className="mt-1 text-xs text-zinc-400">
+                  O domínio precisa estar verificado no Resend.{' '}
+                  <span className="text-zinc-500">Para testes use <code className="bg-zinc-100 px-1 rounded">onboarding@resend.dev</code></span>
+                </p>
+              </div>
             </div>
           </div>
 
