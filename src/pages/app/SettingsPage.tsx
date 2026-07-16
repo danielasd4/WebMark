@@ -352,73 +352,49 @@ export function SettingsPage() {
             <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-xs space-y-6">
               <div>
                 <h2 className="font-semibold text-zinc-900 mb-1">Domínio próprio</h2>
-                <p className="text-sm text-zinc-500">Configure SPF, DKIM e DMARC para melhorar a entregabilidade</p>
+                <p className="text-sm text-zinc-500">Verifique seu domínio no Resend para enviar e-mails com identidade própria</p>
               </div>
 
-              <div className="flex gap-2">
-                <input
-                  value={newDomain}
-                  onChange={e => setNewDomain(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addDomain() }}
-                  placeholder="empresa.com.br"
-                  className="flex-1 h-9 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-xs focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
-                />
-                <Button size="sm" onClick={addDomain} loading={savingDomain}>
-                  Adicionar domínio
-                </Button>
+              {/* Teste rápido */}
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-1">
+                <p className="text-sm font-medium text-blue-900">Enviando para testes?</p>
+                <p className="text-sm text-blue-700">
+                  Use <code className="bg-blue-100 px-1.5 py-0.5 rounded font-mono text-xs">onboarding@resend.dev</code> como e-mail remetente nas campanhas. Funciona sem verificação de domínio.
+                </p>
               </div>
 
-              {domains.length > 0 && (
-                <div className="space-y-3">
-                  {domains.map(d => (
-                    <div key={d.id} className="border border-zinc-100 rounded-xl overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3 bg-zinc-50">
-                        <div className="flex items-center gap-3">
-                          <Globe size={14} className="text-zinc-400" />
-                          <span className="text-sm font-medium text-zinc-900">{d.domain}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={cn(
-                            'text-xs font-medium px-2 py-0.5 rounded-md',
-                            d.status === 'verified' ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'
-                          )}>
-                            {d.status === 'verified' ? 'Verificado' : 'Pendente'}
-                          </span>
-                          <button
-                            onClick={() => removeDomain(d.id)}
-                            className="p-1 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-                      {d.status === 'pending' && (
-                        <div className="px-4 py-3 space-y-2 border-t border-zinc-100">
-                          <p className="text-xs text-zinc-500 font-medium">Adicione os registros DNS no seu provedor:</p>
-                          {[
-                            { type: 'SPF', record: `v=spf1 include:_spf.webmark.com.br ~all` },
-                            { type: 'DKIM', record: `webmark._domainkey.${d.domain}` },
-                          ].map(({ type, record }) => (
-                            <div key={type} className="bg-zinc-50 rounded-lg p-2.5 border border-zinc-100">
-                              <span className="text-xs font-semibold text-zinc-500">{type}: </span>
-                              <code className="text-xs text-zinc-700 font-mono break-all">{record}</code>
-                            </div>
-                          ))}
-                          <Button size="sm" variant="outline" className="mt-1">Verificar domínio</Button>
-                        </div>
-                      )}
-                    </div>
+              {/* Verificação real */}
+              <div className="border border-zinc-100 rounded-xl p-5 space-y-4">
+                <div className="flex items-start gap-3">
+                  <Globe size={18} className="text-zinc-400 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-zinc-900">Como verificar seu domínio</p>
+                    <p className="text-sm text-zinc-500">A verificação é feita diretamente no Resend, o serviço de envio de e-mails.</p>
+                  </div>
+                </div>
+                <ol className="space-y-2 pl-2">
+                  {[
+                    'Acesse resend.com/domains e faça login',
+                    'Clique em "Add Domain" e digite seu domínio (ex: marketeria.com.br)',
+                    'Adicione os registros DNS que o Resend mostrar no seu provedor (Registro.br, Cloudflare etc.)',
+                    'Clique em "Verify" no Resend — pode levar alguns minutos',
+                    'Pronto! Use seu e-mail próprio como remetente nas campanhas',
+                  ].map((step, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-sm text-zinc-600">
+                      <span className="w-5 h-5 rounded-full bg-zinc-100 text-zinc-500 text-xs font-semibold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                      {step}
+                    </li>
                   ))}
-                </div>
-              )}
-
-              {domains.length === 0 && (
-                <div className="py-8 text-center border border-dashed border-zinc-200 rounded-xl">
-                  <Globe size={24} className="text-zinc-300 mx-auto mb-2" />
-                  <p className="text-sm text-zinc-500">Nenhum domínio adicionado ainda</p>
-                  <p className="text-xs text-zinc-400 mt-1">Adicione seu domínio para enviar e-mails com identidade própria</p>
-                </div>
-              )}
+                </ol>
+                <a
+                  href="https://resend.com/domains"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-900 hover:underline"
+                >
+                  Abrir Resend Domains →
+                </a>
+              </div>
             </div>
           )}
 
