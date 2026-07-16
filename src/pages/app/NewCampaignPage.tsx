@@ -130,7 +130,7 @@ export function NewCampaignPage() {
   const generateSubjectWithAI = () => {
     setAiLoading(true)
     setTimeout(() => {
-      setValue('subject', '🔥 Novidades exclusivas para você — Não perca!')
+      setValue('subject', '🔥 Novidades exclusivas para você. Não perca!')
       setAiLoading(false)
     }, 1200)
   }
@@ -689,7 +689,7 @@ export function NewCampaignPage() {
                   <p className="text-xs text-zinc-400">
                     {recipientMode === 'all' && 'Toda a base de contatos'}
                     {recipientMode === 'filter' && `Filtro: ${filterStatuses.join(', ')}`}
-                    {recipientMode === 'list' && `${selectedLists.length} lista${selectedLists.length > 1 ? 's' : ''} — duplicados removidos automaticamente`}
+                    {recipientMode === 'list' && `${selectedLists.length} lista${selectedLists.length > 1 ? 's' : ''}, duplicados removidos automaticamente`}
                     {recipientMode === 'individual' && `${selectedContacts.length} contato${selectedContacts.length !== 1 ? 's' : ''} selecionado${selectedContacts.length !== 1 ? 's' : ''} individualmente`}
                   </p>
                 </div>
@@ -722,7 +722,7 @@ export function NewCampaignPage() {
                     : recipientMode === 'individual' ? `${selectedContacts.length} individual${selectedContacts.length !== 1 ? 'is' : ''}`
                     : `${selectedLists.length} lista${selectedLists.length > 1 ? 's' : ''}`
                 },
-                { label: 'Assunto', value: watch('subject') || '—' },
+                { label: 'Assunto', value: watch('subject') || '-' },
                 { label: 'Conteúdo', value: useHtml ? 'HTML personalizado' : (emailTitle || emailSubtitle || emailText ? 'Criado' : 'Em branco') },
               ].map(({ label, value }) => (
                 <div key={label} className="bg-zinc-50 rounded-xl p-4">

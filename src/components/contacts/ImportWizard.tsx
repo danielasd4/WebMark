@@ -293,7 +293,7 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
                     <tr key={i} className={cn('hover:bg-zinc-50', c.status === 'duplicate' && 'opacity-50')}>
                       <td className="p-3 font-medium text-zinc-900">{c.first_name} {c.last_name || ''}</td>
                       <td className="p-3 text-zinc-600">{c.email}</td>
-                      <td className="p-3 text-zinc-500 hidden md:table-cell">{c.company || '—'}</td>
+                      <td className="p-3 text-zinc-500 hidden md:table-cell">{c.company || ''}</td>
                       <td className="p-3">
                         {c.status === 'new' ? (
                           <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">

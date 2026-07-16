@@ -14,7 +14,7 @@ const plans = [
 ]
 
 const features = [
-  { icon: Sparkles, title: 'IA que organiza seus contatos', desc: 'Arraste qualquer arquivo — PDF, Excel, CSV — e a IA extrai, organiza e deduplica automaticamente.' },
+  { icon: Sparkles, title: 'IA que organiza seus contatos', desc: 'Arraste qualquer arquivo (PDF, Excel, CSV) e a IA extrai, organiza e deduplica automaticamente.' },
   { icon: Mail, title: 'Campanhas profissionais', desc: 'Editor drag-and-drop, templates prontos e personalização avançada por segmento.' },
   { icon: Zap, title: 'Automações inteligentes', desc: 'Sequências de e-mails, boas-vindas automáticas e fluxos baseados em comportamento.' },
   { icon: BarChart2, title: 'Relatórios em tempo real', desc: 'Taxa de abertura, cliques, bounces e mapa de calor de cliques por campanha.' },
@@ -197,7 +197,7 @@ export function LandingPage() {
                 </div>
               </div>
               <p className="text-zinc-400 text-sm leading-relaxed">
-                Arraste qualquer arquivo com seus contatos. Nossa IA identifica nomes, e-mails, telefones, empresas e cargos automaticamente — mesmo de arquivos desorganizados.
+                Arraste qualquer arquivo com seus contatos. Nossa IA identifica nomes, e-mails, telefones, empresas e cargos automaticamente, mesmo de arquivos desorganizados.
               </p>
             </div>
             <div className="flex-1 bg-zinc-900 rounded-xl p-4 w-full">

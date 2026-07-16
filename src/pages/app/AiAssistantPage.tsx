@@ -45,7 +45,7 @@ export function AiAssistantPage() {
     // Simulated AI response (integrate with Anthropic API here)
     await new Promise(r => setTimeout(r, 1200))
     const responses: Record<string, string> = {
-      default: 'Entendido! Vou analisar sua solicitação.\n\nBaseado nos dados das suas campanhas, aqui está minha sugestão:\n\n**Para a campanha de reativação:**\n\n📧 **Assunto:** "Sentimos sua falta — temos algo especial para você"\n\n📝 **Corpo do e-mail:**\nOlá [Nome],\n\nPercebemos que faz um tempo que não falamos. Preparamos uma oferta exclusiva especialmente para você: **30% de desconto** válido apenas por 48 horas.\n\n[BOTÃO: Aproveitar agora]\n\n💡 **Dica:** Envie entre terça e quinta-feira, às 10h ou 14h — horários com maior taxa de abertura para sua base.',
+      default: 'Entendido! Vou analisar sua solicitação.\n\nBaseado nos dados das suas campanhas, aqui está minha sugestão:\n\n**Para a campanha de reativação:**\n\n📧 **Assunto:** "Sentimos sua falta, temos algo especial para você"\n\n📝 **Corpo do e-mail:**\nOlá [Nome],\n\nPercebemos que faz um tempo que não falamos. Preparamos uma oferta exclusiva especialmente para você: **30% de desconto** válido apenas por 48 horas.\n\n[BOTÃO: Aproveitar agora]\n\n💡 **Dica:** Envie entre terça e quinta-feira, às 10h ou 14h, horários com maior taxa de abertura para sua base.',
     }
     const aiMsg: Message = {
       id: (Date.now() + 1).toString(),
@@ -73,7 +73,7 @@ export function AiAssistantPage() {
         </div>
         <div>
           <h1 className="text-xl font-semibold text-zinc-900">IA Assistente</h1>
-          <p className="text-sm text-zinc-400">Powered by Claude — seu especialista em e-mail marketing</p>
+          <p className="text-sm text-zinc-400">Powered by Claude, seu especialista em e-mail marketing</p>
         </div>
       </div>
 

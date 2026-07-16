@@ -109,12 +109,12 @@ export function DashboardPage() {
             />
             <StatCard
               title="Taxa de abertura"
-              value="—"
+              value="-"
               icon={<TrendingUp size={16} />}
             />
             <StatCard
               title="Taxa de cliques"
-              value="—"
+              value="-"
               icon={<MousePointerClick size={16} />}
             />
           </div>
@@ -197,7 +197,7 @@ export function DashboardPage() {
                           </p>
                         )}
                         {c.status === 'draft' && (
-                          <p className="text-xs text-zinc-400">Rascunho — não enviada</p>
+                          <p className="text-xs text-zinc-400">Rascunho, não enviada</p>
                         )}
                       </div>
                       <Badge variant={status.variant}>{status.label}</Badge>
@@ -261,7 +261,7 @@ export function DashboardPage() {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h2 className="text-sm font-semibold text-zinc-900">
-                    Uso do plano — {org.plan.charAt(0).toUpperCase() + org.plan.slice(1)}
+                    Uso do plano: {org.plan.charAt(0).toUpperCase() + org.plan.slice(1)}
                   </h2>
                   <p className="text-xs text-zinc-400 mt-0.5">{org.name}</p>
                 </div>

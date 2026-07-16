@@ -166,19 +166,19 @@ export function CampaignsPage() {
                         <div>
                           <p className="text-xs text-zinc-400">Abertura</p>
                           <p className="text-sm font-semibold text-emerald-600">
-                            {stats.total_sent > 0 ? formatPercent((stats.unique_opens / stats.total_sent) * 100) : '—'}
+                            {stats.total_sent > 0 ? formatPercent((stats.unique_opens / stats.total_sent) * 100) : '-'}
                           </p>
                         </div>
                         <div>
                           <p className="text-xs text-zinc-400">Cliques</p>
                           <p className="text-sm font-semibold text-blue-600">
-                            {stats.total_sent > 0 ? formatPercent((stats.unique_clicks / stats.total_sent) * 100) : '—'}
+                            {stats.total_sent > 0 ? formatPercent((stats.unique_clicks / stats.total_sent) * 100) : '-'}
                           </p>
                         </div>
                         <div>
                           <p className="text-xs text-zinc-400">Bounces</p>
                           <p className="text-sm font-semibold text-red-500">
-                            {stats.total_sent > 0 ? formatPercent((stats.bounces / stats.total_sent) * 100) : '—'}
+                            {stats.total_sent > 0 ? formatPercent((stats.bounces / stats.total_sent) * 100) : '-'}
                           </p>
                         </div>
                         {campaign.sent_at && (

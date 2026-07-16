@@ -30,10 +30,7 @@ export function Sidebar() {
     <aside className="fixed inset-y-0 left-0 z-40 w-60 bg-white border-r border-zinc-100 flex flex-col">
       {/* Logo */}
       <div className="h-14 flex items-center px-5 border-b border-zinc-100">
-        <NavLink to="/app/contacts" className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-zinc-900 rounded-lg flex items-center justify-center">
-            <Mail size={14} className="text-white" />
-          </div>
+        <NavLink to="/app/contacts" className="flex items-center">
           <span className="font-semibold text-zinc-900 text-sm tracking-tight">WebMark</span>
         </NavLink>
       </div>
