@@ -65,3 +65,19 @@ export function useDeleteList() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['lists'] }),
   })
 }
+
+export function useAddContactsToList() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ listId, contactIds }: { listId: string; contactIds: string[] }) => {
+      if (!contactIds.length) return
+      const rows = contactIds.map(contactId => ({ list_id: listId, contact_id: contactId }))
+      const { error } = await supabase
+        .from('contact_list_members')
+        .upsert(rows, { ignoreDuplicates: true })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['lists'] }),
+  })
+}

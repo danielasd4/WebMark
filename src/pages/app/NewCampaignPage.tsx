@@ -1,19 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import {
   ArrowLeft, ArrowRight, Send, Calendar, Sparkles,
-  Smartphone, Monitor, CheckCircle2, Users, Loader2
+  Smartphone, Monitor, CheckCircle2, Users, Loader2, Mail
 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { EmailEditor } from '../../components/email/EmailEditor'
 import { useLists } from '../../hooks/useLists'
 import { useCreateCampaign, useUpdateCampaign } from '../../hooks/useCampaigns'
+import { useOrganization } from '../../hooks/useOrganization'
+import { supabase } from '../../lib/supabase'
 
-const steps = ['Configurações', 'Conteúdo', 'Listas', 'Revisão']
+const steps = ['Configurações', 'Conteúdo', 'Destinatários', 'Revisão']
 
 const schema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -36,27 +39,45 @@ const templates = [
 export function NewCampaignPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
+  const [sendToAll, setSendToAll] = useState(false)
   const [selectedLists, setSelectedLists] = useState<string[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState('newsletter')
   const [preview, setPreview] = useState<'desktop' | 'mobile'>('desktop')
   const [sendMode, setSendMode] = useState<'now' | 'schedule' | 'draft'>('draft')
   const [scheduledAt, setScheduledAt] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-
   const [contentHtml, setContentHtml] = useState('')
   const [finishError, setFinishError] = useState<string | null>(null)
 
+  const { data: org } = useOrganization()
   const { data: lists = [], isLoading: listsLoading } = useLists()
   const createCampaign = useCreateCampaign()
   const updateCampaign = useUpdateCampaign()
 
+  const { data: totalContacts = 0 } = useQuery({
+    queryKey: ['contacts-count', org?.id],
+    queryFn: async () => {
+      if (!org) return 0
+      const { count } = await supabase
+        .from('contacts')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', org.id)
+      return count ?? 0
+    },
+    enabled: !!org,
+  })
+
   const { register, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      from_name: 'Equipe WebMark',
-      from_email: '',
-    }
+    defaultValues: { from_name: '', from_email: '' },
   })
+
+  useEffect(() => {
+    if (org?.name) {
+      const cur = getValues('from_name')
+      if (!cur) setValue('from_name', org.name)
+    }
+  }, [org?.name])
 
   const subject = watch('subject') ?? ''
 
@@ -80,8 +101,9 @@ export function NewCampaignPage() {
       const campaign = await createCampaign.mutateAsync({
         ...values,
         content_html: contentHtml,
+        content_json: sendToAll ? { send_to_all: true } : undefined,
         status,
-        list_ids: selectedLists,
+        list_ids: sendToAll ? [] : selectedLists,
         scheduled_at: sendMode === 'schedule' && scheduledAt ? scheduledAt : undefined,
       })
 
@@ -111,9 +133,11 @@ export function NewCampaignPage() {
     }
   }
 
-  const totalEstimated = lists
-    .filter(l => selectedLists.includes(l.id))
-    .reduce((acc, l) => acc + (l.contact_count ?? 0), 0)
+  const recipientCount = sendToAll
+    ? totalContacts
+    : lists.filter(l => selectedLists.includes(l.id)).reduce((acc, l) => acc + (l.contact_count ?? 0), 0)
+
+  const canProceedFromStep2 = sendToAll || selectedLists.length > 0
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -186,7 +210,7 @@ export function NewCampaignPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <Input label="Nome do remetente *" error={errors.from_name?.message} {...register('from_name')} />
-              <Input label="E-mail do remetente *" type="email" error={errors.from_email?.message} {...register('from_email')} />
+              <Input label="E-mail do remetente *" type="email" placeholder="contato@suaempresa.com" error={errors.from_email?.message} {...register('from_email')} />
             </div>
 
             <Input label="Responder para" type="email" placeholder="(opcional)" {...register('reply_to')} />
@@ -261,44 +285,76 @@ export function NewCampaignPage() {
 
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setStep(0)} icon={<ArrowLeft size={14} />}>Anterior</Button>
-            <Button onClick={() => setStep(2)} icon={<ArrowRight size={14} />}>Próximo: Listas</Button>
+            <Button onClick={() => setStep(2)} icon={<ArrowRight size={14} />}>Próximo: Destinatários</Button>
           </div>
         </div>
       )}
 
-      {/* Step 2: Lists */}
+      {/* Step 2: Recipients */}
       {step === 2 && (
         <div className="space-y-6">
-          <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-xs">
-            <h2 className="font-semibold text-zinc-900 mb-1">Selecione as listas de destinatários</h2>
-            <p className="text-sm text-zinc-500 mb-5">Escolha uma ou mais listas para envio.</p>
+          <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-xs space-y-5">
+            <div>
+              <h2 className="font-semibold text-zinc-900 mb-1">Para quem enviar?</h2>
+              <p className="text-sm text-zinc-500">Escolha o público desta campanha.</p>
+            </div>
 
+            {/* Send to all option */}
+            <button
+              onClick={() => { setSendToAll(true); setSelectedLists([]) }}
+              className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
+                sendToAll ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300'
+              }`}
+            >
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                sendToAll ? 'border-zinc-900 bg-zinc-900' : 'border-zinc-300'
+              }`}>
+                {sendToAll && <div className="w-2 h-2 rounded-full bg-white" />}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-zinc-900">Todos os contatos</p>
+                <p className="text-xs text-zinc-400">Enviar para toda a base cadastrada</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-lg font-bold text-zinc-900">{totalContacts.toLocaleString('pt-BR')}</p>
+                <p className="text-xs text-zinc-400">contatos</p>
+              </div>
+            </button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-zinc-100" />
+              <span className="text-xs text-zinc-400 font-medium">ou segmente por lista</span>
+              <div className="flex-1 h-px bg-zinc-100" />
+            </div>
+
+            {/* Lists */}
             {listsLoading ? (
-              <div className="flex justify-center py-8">
+              <div className="flex justify-center py-6">
                 <Loader2 size={20} className="animate-spin text-zinc-400" />
               </div>
             ) : lists.length === 0 ? (
-              <div className="py-10 text-center">
-                <Users size={32} className="text-zinc-300 mx-auto mb-3" />
-                <p className="text-sm text-zinc-500">Nenhuma lista criada ainda.</p>
-                <a href="/app/lists" className="text-xs font-medium text-zinc-900 hover:underline mt-1 inline-block">
-                  Criar uma lista →
-                </a>
+              <div className="py-6 text-center border border-dashed border-zinc-200 rounded-xl">
+                <Users size={24} className="text-zinc-300 mx-auto mb-2" />
+                <p className="text-sm text-zinc-500 mb-1">Nenhuma lista criada ainda.</p>
+                <p className="text-xs text-zinc-400 mb-3">
+                  Crie listas em <a href="/app/contacts" className="text-zinc-900 font-medium hover:underline">Contatos</a> selecionando contatos e clicando em "Adicionar à lista".
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
                 {lists.map((list) => (
                   <button
                     key={list.id}
-                    onClick={() => toggleList(list.id)}
+                    onClick={() => { setSendToAll(false); toggleList(list.id) }}
                     className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
-                      selectedLists.includes(list.id) ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300'
+                      !sendToAll && selectedLists.includes(list.id) ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300'
                     }`}
                   >
-                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${
-                      selectedLists.includes(list.id) ? 'border-zinc-900 bg-zinc-900' : 'border-zinc-300'
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                      !sendToAll && selectedLists.includes(list.id) ? 'border-zinc-900 bg-zinc-900' : 'border-zinc-300'
                     }`}>
-                      {selectedLists.includes(list.id) && <CheckCircle2 size={12} className="text-white" />}
+                      {!sendToAll && selectedLists.includes(list.id) && <CheckCircle2 size={12} className="text-white" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-zinc-900">{list.name}</p>
@@ -313,19 +369,25 @@ export function NewCampaignPage() {
               </div>
             )}
 
-            {selectedLists.length > 0 && (
-              <div className="mt-4 bg-zinc-50 rounded-xl p-4">
-                <p className="text-sm font-medium text-zinc-900">
-                  Total estimado: {totalEstimated.toLocaleString('pt-BR')} destinatários
-                </p>
-                <p className="text-xs text-zinc-400 mt-0.5">Duplicados serão removidos automaticamente</p>
+            {/* Summary */}
+            {canProceedFromStep2 && (
+              <div className="bg-zinc-50 rounded-xl p-4 flex items-center gap-3">
+                <Mail size={16} className="text-zinc-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900">
+                    {recipientCount.toLocaleString('pt-BR')} destinatários
+                  </p>
+                  <p className="text-xs text-zinc-400">
+                    {sendToAll ? 'Toda a base de contatos' : `${selectedLists.length} lista${selectedLists.length > 1 ? 's' : ''} — duplicados removidos automaticamente`}
+                  </p>
+                </div>
               </div>
             )}
           </div>
 
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setStep(1)} icon={<ArrowLeft size={14} />}>Anterior</Button>
-            <Button onClick={() => setStep(3)} disabled={selectedLists.length === 0} icon={<ArrowRight size={14} />}>
+            <Button onClick={() => setStep(3)} disabled={!canProceedFromStep2} icon={<ArrowRight size={14} />}>
               Próximo: Revisão
             </Button>
           </div>
@@ -340,8 +402,8 @@ export function NewCampaignPage() {
 
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Destinatários', value: totalEstimated.toLocaleString('pt-BR') },
-                { label: 'Listas', value: `${selectedLists.length} selecionada${selectedLists.length > 1 ? 's' : ''}` },
+                { label: 'Destinatários', value: recipientCount.toLocaleString('pt-BR') },
+                { label: 'Público', value: sendToAll ? 'Todos os contatos' : `${selectedLists.length} lista${selectedLists.length > 1 ? 's' : ''}` },
                 { label: 'Template', value: templates.find(t => t.id === selectedTemplate)?.name || '-' },
                 { label: 'Assunto', value: watch('subject') || '—' },
               ].map(({ label, value }) => (

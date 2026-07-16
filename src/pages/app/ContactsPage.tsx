@@ -14,6 +14,7 @@ import { formatDate, initials } from '../../lib/utils'
 import {
   useContacts, useCreateContact, useUpdateContact, useDeleteContact, useDeleteContacts
 } from '../../hooks/useContacts'
+import { useLists, useAddContactsToList } from '../../hooks/useLists'
 import type { Contact, ContactStatus } from '../../types'
 
 const statusConfig: Record<ContactStatus, { label: string; variant: 'success' | 'info' | 'default' | 'warning' | 'danger' }> = {
@@ -32,12 +33,16 @@ export function ContactsPage() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [showAddToList, setShowAddToList] = useState(false)
+  const [addListError, setAddListError] = useState<string | null>(null)
 
   const { data: contacts = [], isLoading, error } = useContacts(search)
   const createContact = useCreateContact()
   const updateContact = useUpdateContact()
   const deleteContact = useDeleteContact()
   const deleteContacts = useDeleteContacts()
+  const { data: lists = [] } = useLists()
+  const addContactsToList = useAddContactsToList()
 
   const toggleSelect = (id: string) =>
     setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
@@ -57,6 +62,17 @@ export function ContactsPage() {
       setEditingContact(null)
     } catch (err: any) {
       setSaveError(err?.message ?? 'Erro ao salvar contato. Tente novamente.')
+    }
+  }
+
+  const handleAddToList = async (listId: string) => {
+    try {
+      setAddListError(null)
+      await addContactsToList.mutateAsync({ listId, contactIds: selected })
+      setShowAddToList(false)
+      setSelected([])
+    } catch (err: any) {
+      setAddListError(err?.message ?? 'Erro ao adicionar à lista.')
     }
   }
 
@@ -124,11 +140,8 @@ export function ContactsPage() {
         <div className="flex items-center gap-3 bg-zinc-900 text-white px-4 py-2.5 rounded-xl">
           <span className="text-sm font-medium">{selected.length} selecionado{selected.length > 1 ? 's' : ''}</span>
           <div className="flex-1" />
-          <Button variant="ghost" size="xs" className="text-white hover:bg-zinc-800">
-            <Tag size={12} /> Adicionar tag
-          </Button>
-          <Button variant="ghost" size="xs" className="text-white hover:bg-zinc-800">
-            <Mail size={12} /> Enviar campanha
+          <Button variant="ghost" size="xs" className="text-white hover:bg-zinc-800" onClick={() => { setAddListError(null); setShowAddToList(true) }}>
+            <Users size={12} /> Adicionar à lista
           </Button>
           <Button
             variant="ghost" size="xs" className="text-red-400 hover:bg-zinc-800"
@@ -309,6 +322,39 @@ export function ContactsPage() {
 
       {/* Import Wizard */}
       <ImportWizard open={showImport} onClose={() => setShowImport(false)} />
+
+      {/* Add to list modal */}
+      <Modal open={showAddToList} onClose={() => setShowAddToList(false)} title={`Adicionar ${selected.length} contato${selected.length > 1 ? 's' : ''} à lista`} size="sm">
+        <div className="space-y-3">
+          {lists.length === 0 ? (
+            <div className="py-6 text-center">
+              <p className="text-sm text-zinc-500 mb-2">Nenhuma lista criada ainda.</p>
+              <a href="/app/lists" className="text-sm font-medium text-zinc-900 hover:underline">Criar lista →</a>
+            </div>
+          ) : (
+            lists.map(list => (
+              <button
+                key={list.id}
+                onClick={() => handleAddToList(list.id)}
+                disabled={addContactsToList.isPending}
+                className="w-full flex items-center justify-between p-4 border border-zinc-200 rounded-xl hover:border-zinc-900 hover:bg-zinc-50 transition-all text-left disabled:opacity-50"
+              >
+                <div>
+                  <p className="text-sm font-medium text-zinc-900">{list.name}</p>
+                  {list.description && <p className="text-xs text-zinc-400">{list.description}</p>}
+                </div>
+                <div className="text-right shrink-0 ml-4">
+                  <p className="text-sm font-semibold text-zinc-900">{(list.contact_count ?? 0).toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-zinc-400">contatos</p>
+                </div>
+              </button>
+            ))
+          )}
+          {addListError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{addListError}</p>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

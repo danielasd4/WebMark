@@ -37,27 +37,40 @@ export const handler = async (event) => {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Campaign not found' }) }
     }
 
+    const sendToAll = campaign.content_json?.send_to_all === true
     const listIds = campaign.list_ids || []
-    if (listIds.length === 0) {
+
+    if (!sendToAll && listIds.length === 0) {
       await supabase.from('campaigns').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', campaign_id)
       return { statusCode: 200, headers, body: JSON.stringify({ sent: 0 }) }
     }
 
-    // Get all contacts from the selected lists, deduplicated
-    const { data: members, error: membersErr } = await supabase
-      .from('contact_list_members')
-      .select('contacts(id, email, first_name, last_name, status)')
-      .in('list_id', listIds)
+    let contacts = []
 
-    if (membersErr) throw membersErr
+    if (sendToAll) {
+      // Send to all non-unsubscribed contacts in the org
+      const { data: allContacts, error: allErr } = await supabase
+        .from('contacts')
+        .select('id, email, first_name, last_name, status')
+        .eq('organization_id', campaign.organization_id)
+        .neq('status', 'unsubscribed')
+      if (allErr) throw allErr
+      contacts = allContacts || []
+    } else {
+      // Get all contacts from selected lists, deduplicated
+      const { data: members, error: membersErr } = await supabase
+        .from('contact_list_members')
+        .select('contacts(id, email, first_name, last_name, status)')
+        .in('list_id', listIds)
+      if (membersErr) throw membersErr
 
-    const seen = new Set()
-    const contacts = []
-    for (const m of members || []) {
-      const c = Array.isArray(m.contacts) ? m.contacts[0] : m.contacts
-      if (c?.email && !seen.has(c.email) && c.status !== 'unsubscribed') {
-        seen.add(c.email)
-        contacts.push(c)
+      const seen = new Set()
+      for (const m of members || []) {
+        const c = Array.isArray(m.contacts) ? m.contacts[0] : m.contacts
+        if (c?.email && !seen.has(c.email) && c.status !== 'unsubscribed') {
+          seen.add(c.email)
+          contacts.push(c)
+        }
       }
     }
 
