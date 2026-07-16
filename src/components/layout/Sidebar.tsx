@@ -31,7 +31,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="h-14 flex items-center px-5 border-b border-zinc-100">
         <NavLink to="/app/contacts" className="flex items-center">
-          <span className="font-semibold text-zinc-900 text-sm tracking-tight">WebMark</span>
+          <img src="/Identidade Visual/Group 1.png" alt="WebMark" className="h-8 w-auto" />
         </NavLink>
       </div>
 
