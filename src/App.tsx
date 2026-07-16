@@ -55,7 +55,7 @@ export default function App() {
 
       {/* App */}
       <Route path="/app" element={<RequireAuth><AppLayout /></RequireAuth>}>
-        <Route index element={<Navigate to="/app/dashboard" replace />} />
+        <Route index element={<Navigate to="/app/contacts" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="contacts" element={<ContactsPage />} />
         <Route path="lists" element={<ListsPage />} />

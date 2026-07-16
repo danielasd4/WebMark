@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, Mail, List, Zap, BarChart2,
-  Settings, LogOut, Sparkles, ChevronDown, Building2
+  Users, Mail,
+  Settings, LogOut,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { supabase } from '../../lib/supabase'
@@ -9,13 +9,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { initials } from '../../lib/utils'
 
 const nav = [
-  { label: 'Dashboard', icon: LayoutDashboard, to: '/app/dashboard' },
   { label: 'Contatos', icon: Users, to: '/app/contacts' },
-  { label: 'Listas', icon: List, to: '/app/lists' },
   { label: 'Campanhas', icon: Mail, to: '/app/campaigns' },
-  { label: 'Automações', icon: Zap, to: '/app/automations' },
-  { label: 'Relatórios', icon: BarChart2, to: '/app/reports' },
-  { label: 'IA Assistente', icon: Sparkles, to: '/app/ai' },
 ]
 
 const bottomNav = [
@@ -35,7 +30,7 @@ export function Sidebar() {
     <aside className="fixed inset-y-0 left-0 z-40 w-60 bg-white border-r border-zinc-100 flex flex-col">
       {/* Logo */}
       <div className="h-14 flex items-center px-5 border-b border-zinc-100">
-        <NavLink to="/app/dashboard" className="flex items-center gap-2">
+        <NavLink to="/app/contacts" className="flex items-center gap-2">
           <div className="w-7 h-7 bg-zinc-900 rounded-lg flex items-center justify-center">
             <Mail size={14} className="text-white" />
           </div>
